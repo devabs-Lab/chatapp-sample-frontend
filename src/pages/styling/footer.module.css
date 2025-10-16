@@ -1,0 +1,153 @@
+.footer {
+  background: #2d3748;
+  color: white;
+  padding: 2rem 0;
+}
+
+.logo_text img {
+  width: 150px;
+}
+.footer_content {
+  width: 85%;
+  margin: 0 auto;
+  /* padding: 0 2rem; */
+  display: grid;
+  grid-template-columns: 3fr 2fr 1fr;
+  gap: 2rem;
+  font-size: 14px;
+}
+
+.footer_logo {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  size: 150px;
+}
+
+.social_links {
+  display: flex;
+  gap: 1rem;
+  padding-left: 20px;
+}
+
+.social_links img {
+  width: 20px;
+}
+
+.footer_links h4,
+.contact_info h4 {
+  margin-left: 1.8rem;
+  margin-bottom: 1rem;
+  color: #a0aec0;
+}
+
+.footer_links ul,
+.contact_info ul {
+  list-style: none;
+}
+
+.footer_links li,
+.contact_info li {
+  margin-bottom: 0.5rem;
+  font-weight: lighter;
+}
+
+.footer_links a,
+.contact_info a {
+  color: #a0aec0;
+  text-decoration: none;
+
+  font-weight: lighter;
+}
+
+.footer_links a:hover,
+.contact_info a:hover {
+  color: white;
+}
+
+/*  */
+
+@media (max-width: 700px) {
+  .footer {
+    padding: 3rem 0;
+  }
+  .footer_links ul li {
+    font-size: small;
+  }
+  .contact_info a {
+    font-size: small;
+  }
+  .footer_content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .contact_info {
+    order: 2;
+  }
+  .footer_links {
+    order: 1;
+  }
+  .footer_logo {
+    order: 3;
+    text-align: center;
+  }
+
+  .footer_links h4,
+  .contact_info h4 {
+    margin-left: 0rem;
+    margin-bottom: 1rem;
+    color: #bec9d6;
+    font-size: 17px;
+  }
+  .footer_links ul {
+    padding-left: 5px !important;
+  }
+
+  .logo_text img {
+    width: 200px;
+  }
+  .social_links img {
+    width: 30px;
+  }
+  .social_links {
+    padding-left: 50px;
+  }
+}
+
+@media (max-width: 450px) {
+  .footer {
+    padding: 3rem 0;
+  }
+  .footer_links ul li {
+    font-size: 11px;
+  }
+  .contact_info a {
+    font-size: 11px;
+  }
+
+  .footer_links h4 {
+    margin-bottom: 0.8rem;
+    font-size: 15px;
+  }
+  .contact_info h4 {
+    margin-bottom: 0.8rem;
+    font-size: 14px;
+  }
+  .footer_links ul {
+    padding-left: 5px !important;
+  }
+  .contact_info ul {
+    padding-left: 24px !important;
+  }
+
+  .logo_text img {
+    width: 160px;
+  }
+  .social_links img {
+    width: 20px;
+  }
+  .social_links {
+    padding-left: 40px;
+  }
+}

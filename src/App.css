@@ -1,0 +1,84 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body.swal2-shown {
+  padding-right: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+}
+body {
+  font-family: "Arial", sans-serif;
+
+  background-color: #f6f5f7 !important;
+  min-height: 100vh;
+  transition: all 0.3s ease-in-out;
+}
+
+.tiny-icon {
+  color: darkgreen;
+  transform: scale(0.7);
+  margin: 10px auto;
+}
+
+.tiny-popup {
+  width: auto !important;
+  padding: 15px 25px 25px !important;
+  transition: all 0.2s !important;
+}
+
+.tiny-title {
+  font-size: 16px !important;
+}
+
+.tiny-text {
+  font-size: 13px !important;
+}
+
+.tiny-button {
+  font-size: 13px !important;
+  padding: 6px 15px !important;
+  color: rgb(255, 255, 255);
+  background-color: #eb167d !important;
+  transition: background 0.2s !important;
+}
+
+.tiny-button:hover {
+  background-color: #691f42 !important;
+}
+
+@media (min-width: 850px) {
+  .tiny-popup {
+    width: auto !important;
+    padding: 35px 40px !important;
+  }
+  .tiny-title {
+    font-size: 23px !important;
+  }
+
+  .tiny-text {
+    font-size: 16px !important;
+  }
+
+  .tiny-button {
+    font-size: 20px !important;
+    padding: 6px 20px !important;
+    color: rgb(255, 255, 255);
+    background-color: #eb167d !important;
+    transition: background 0.2s !important;
+  }
+}
+@media (max-width: 400px) {
+  .tiny-popup {
+    width: auto !important;
+    padding: 15px 15px !important;
+  }
+  .tiny-title {
+    font-size: 17px !important;
+  }
+
+  .tiny-text {
+    font-size: 14px !important;
+  }
+}
