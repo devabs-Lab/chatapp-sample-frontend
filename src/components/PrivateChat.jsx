@@ -7,7 +7,7 @@ import React, {
 } from "react";
 
 import { Appstate } from "../App";
-import { CryptoContext } from "../App";
+// import { CryptoContext } from "../App";
 import axiosbase from "../axiosconfig";
 import { useSocket } from "../Socketprovider";
 
@@ -16,7 +16,7 @@ import { IoMdSend, IoMdClose } from "react-icons/io";
 // import { showErrorAlert } from "./alerthelper";
 import classes from "../pages/styling/chat.module.css";
 
-import { PrivateChatStorage } from "../db/dexieDB.js";
+// import { PrivateChatStorage } from "../db/dexieDB.js";
 import {
   TextMessage,
   ImageMessage,
@@ -50,7 +50,7 @@ const PrivateChat = ({
   sendFileToServer,
 }) => {
   const { user } = useContext(Appstate);
-  const { cryptoKey } = useContext(CryptoContext);
+  // const { cryptoKey } = useContext(CryptoContext);
 
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(!messages || messages.length === 0);
@@ -58,12 +58,21 @@ const PrivateChat = ({
   // const [restoringScroll, setRestoringScroll] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
+  // console.log(savedScroll);
+  const seenMessagesRef = useRef(new Set());
   const textareaRef = useRef(null);
   const chatContainerRef = useRef(null);
   const scrollRestoreRef = useRef(null);
   const observerRef = useRef(null);
-
+  const waitingForInitialImagesRef = useRef(false);
+  const loadedImageIdsRef = useRef(new Set());
+  const imageLoadTimeoutRef = useRef(null);
+  const isInitialLoadRef = useRef(true); // Track if this is the very first load
+  const [imagesToLoad, setImagesToLoad] = useState(0);
+  const [imagesLoaded, setImagesLoaded] = useState(0);
   const socket = useSocket();
+
+  // console.log(messages);
 
   const mergeUniqueById = (arr, prev = []) => {
     const validArr = arr.filter(
@@ -87,29 +96,37 @@ const PrivateChat = ({
   };
 
   useEffect(() => {
-    if (!socket || !cryptoKey || !user?.userid || !conversation?.other_user_id)
-      return;
+    if (!socket || !user?.userid || !conversation?.other_user_id) return;
 
     setLoading(true);
-
+    // fetchMessages();
     if (!hydratedChatsRef.current[conversation.other_user_id]) {
-      syncreadmessages();
+      // This is the first time opening this chat - mark as initial load
+      isInitialLoadRef.current = true;
+      // syncreadmessages();
       fetchMessages();
-      pendingsyncdexie();
+      // pendingsyncdexie();
       hydratedChatsRef.current[conversation.other_user_id] = true;
     } else {
+      // User is returning to this chat - not initial load
+      isInitialLoadRef.current = false;
       setLoading(false);
     }
-    const handleOnlineforsync = () => {
-      syncreadmessages();
-      pendingsyncdexie();
-    };
 
-    window.addEventListener("online", handleOnlineforsync);
+    // Reset when conversation changes
     return () => {
-      window.removeEventListener("online", handleOnlineforsync);
+      // Cleanup when switching conversations
     };
-  }, [socket, cryptoKey, user?.userid, conversation.other_user_id]);
+    // const handleOnlineforsync = () => {
+    //   syncreadmessages();
+    //   pendingsyncdexie();
+    // };
+
+    // window.addEventListener("online", handleOnlineforsync);
+    return () => {
+      // window.removeEventListener("online", handleOnlineforsync);
+    };
+  }, [socket, user?.userid, conversation.other_user_id]);
 
   useEffect(() => {
     if (!conversation?.other_user_id) return;
@@ -124,9 +141,148 @@ const PrivateChat = ({
     mediaMessages.forEach((msg) => downloadFile(msg));
   }, [messages]);
 
+  useEffect(() => {
+    if (!messages) return;
+
+    // Count ALL image messages, regardless of whether they have fileUrl/preview
+    // Images without fileUrl will be downloaded first, then rendered
+    const imageMessages = messages.filter((m) => {
+      // Must be an image type
+      if (m?.message_type === "image") return true;
+
+      // Or check file extension
+      const path = m?.fileurl || m?.fileUrl || "";
+      if (!path) return false;
+      const lower = path.toLowerCase();
+      return (
+        lower.includes(".jpg") ||
+        lower.includes(".jpeg") ||
+        lower.includes(".png") ||
+        lower.includes(".gif") ||
+        lower.includes(".webp")
+      );
+    });
+
+    const count = imageMessages.length;
+    setImagesToLoad(count);
+
+    // Get current image IDs (all image messages, not just rendered ones)
+    const currentImageIds = new Set(imageMessages.map((m) => m.id || m.tempId));
+
+    // Clean up loadedImageIdsRef to only include current images
+    const validLoadedIds = Array.from(loadedImageIdsRef.current).filter((id) =>
+      currentImageIds.has(id)
+    );
+    loadedImageIdsRef.current = new Set(validLoadedIds);
+
+    const loadedCount = validLoadedIds.length;
+    setImagesLoaded(loadedCount);
+
+    // Clear any existing timeout
+    if (imageLoadTimeoutRef.current) {
+      clearTimeout(imageLoadTimeoutRef.current);
+      imageLoadTimeoutRef.current = null;
+    }
+
+    // If there are unloaded images, wait for them to load before scrolling
+    // BUT only if this is a true initial load (first time opening this chat)
+    // If user is returning to chat (savedScroll exists), don't wait - just restore their position
+    if (count > 0 && count > loadedCount) {
+      // Only wait for images on true initial load, not when returning to chat
+      if (isInitialLoadRef.current) {
+        waitingForInitialImagesRef.current = true;
+        // Fallback: if images don't load within 3 seconds (maybe cached or error), scroll anyway
+        imageLoadTimeoutRef.current = setTimeout(() => {
+          if (waitingForInitialImagesRef.current) {
+            waitingForInitialImagesRef.current = false;
+            // Always scroll on initial load OR if pending auto scroll
+            if (isInitialLoadRef.current || pendingAutoScrollRef.current) {
+              scrollToBottom(true);
+              if (isInitialLoadRef.current) {
+                isInitialLoadRef.current = false;
+              }
+              if (pendingAutoScrollRef.current) {
+                pendingAutoScrollRef.current = false;
+                setUnreadCount((prev) => ({
+                  ...prev,
+                  [conversation.other_user_id]: 0,
+                }));
+              }
+            }
+          }
+        }, 3000);
+      } else {
+        // User is returning - don't wait for images, just restore their position
+        waitingForInitialImagesRef.current = false;
+      }
+    } else if (count === 0) {
+      // No images, scroll immediately (only on initial load)
+      waitingForInitialImagesRef.current = false;
+      // Always scroll on initial load, regardless of savedScroll
+      if (isInitialLoadRef.current) {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            const container = chatContainerRef.current;
+            if (container) {
+              container.scrollTop = container.scrollHeight;
+              atBottomRef.current = true;
+              setIsAtBottom(true);
+              isInitialLoadRef.current = false;
+            }
+          }, 200);
+        });
+      }
+    } else if (count === loadedCount && count > 0) {
+      // All images already loaded
+      waitingForInitialImagesRef.current = false;
+      // Scroll on initial load (only if not returning) OR if pending auto scroll
+      if (
+        pendingAutoScrollRef.current ||
+        (isInitialLoadRef.current && savedScroll === null)
+      ) {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            const container = chatContainerRef.current;
+            if (container) {
+              container.scrollTop = container.scrollHeight;
+              const { scrollTop, scrollHeight, clientHeight } = container;
+              const atBottom =
+                Math.abs(scrollHeight - scrollTop - clientHeight) < 5;
+              atBottomRef.current = atBottom;
+              setIsAtBottom(atBottom);
+
+              if (isInitialLoadRef.current) {
+                isInitialLoadRef.current = false;
+              }
+              if (pendingAutoScrollRef.current) {
+                pendingAutoScrollRef.current = false;
+                setUnreadCount((prev) => ({
+                  ...prev,
+                  [conversation.other_user_id]: 0,
+                }));
+              }
+            }
+          }, 200);
+        });
+      }
+    }
+
+    return () => {
+      if (imageLoadTimeoutRef.current) {
+        clearTimeout(imageLoadTimeoutRef.current);
+      }
+    };
+  }, [messages, savedScroll]);
+
   useLayoutEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
+
+    const updateAtBottomFlag = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const atBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 5;
+      atBottomRef.current = atBottom;
+    };
 
     // on prepended older messages, maintain the user's viewport.
     if (scrollRestoreRef.current) {
@@ -135,30 +291,120 @@ const PrivateChat = ({
       container.scrollTop += delta; // keep the same messages at same place
 
       scrollRestoreRef.current = null;
+      updateAtBottomFlag();
       return;
     }
 
-    // restore saved scroll if it exists
-    else if (savedScroll !== null && !pendingAutoScrollRef.current) {
-      container.scrollTop = savedScroll;
-      // return;
+    // If user is returning to chat (savedScroll exists), restore position immediately
+    // BUT if pendingAutoScroll is set, that means a new message arrived - scroll to bottom instead
+    if (savedScroll !== null) {
+      if (pendingAutoScrollRef.current) {
+        // New message arrived while user was away - scroll to bottom
+        container.scrollTop = container.scrollHeight;
+        pendingAutoScrollRef.current = false;
+        updateAtBottomFlag();
+        setUnreadCount((prev) => ({
+          ...prev,
+          [conversation.other_user_id]: 0,
+        }));
+        return;
+      } else {
+        // User is returning - restore their saved position
+        container.scrollTop = savedScroll;
+        updateAtBottomFlag();
+        return;
+      }
     }
 
-    // scroll to bottom
-    if (pendingAutoScrollRef.current) {
-      const contain = chatContainerRef.current;
-      contain.scrollTop = contain.scrollHeight;
-      setUnreadCount((prev) => ({
-        ...prev,
-        [conversation.other_user_id]: 0,
-      }));
-
-      pendingAutoScrollRef.current = false;
+    // Don't scroll if we're waiting for images to load on initial load
+    if (waitingForInitialImagesRef.current && imagesLoaded < imagesToLoad) {
+      updateAtBottomFlag();
       return;
     }
-  }, [messages, conversation?.other_user_id, savedScroll, setUnreadCount]);
+
+    // If we were waiting and now all images are loaded, ensure we scroll
+    // BUT only if this is a true initial load (savedScroll is null), not when returning
+    if (
+      waitingForInitialImagesRef.current &&
+      imagesLoaded === imagesToLoad &&
+      imagesToLoad > 0
+    ) {
+      // Only scroll on true initial load (savedScroll is null)
+      // If savedScroll exists, user is returning - don't scroll
+      if (savedScroll === null && isInitialLoadRef.current) {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+            updateAtBottomFlag();
+            // Mark initial load as complete
+            isInitialLoadRef.current = false;
+            if (pendingAutoScrollRef.current) {
+              pendingAutoScrollRef.current = false;
+              setUnreadCount((prev) => ({
+                ...prev,
+                [conversation.other_user_id]: 0,
+              }));
+            }
+          }, 200);
+        });
+      }
+      return;
+    }
+
+    // If no images and initial load, scroll to bottom (only if not returning)
+    if (
+      imagesToLoad === 0 &&
+      isInitialLoadRef.current &&
+      savedScroll === null
+    ) {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight;
+          updateAtBottomFlag();
+          isInitialLoadRef.current = false;
+        }, 200);
+      });
+      return;
+    }
+
+    // Handle pending auto scroll (for new messages when user is at bottom)
+    // BUT only if there are no images waiting to load
+    // If images are loading, wait for them to finish (they'll trigger scroll in handleMediaLoad)
+    if (pendingAutoScrollRef.current && imagesToLoad === 0) {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight;
+          updateAtBottomFlag();
+          pendingAutoScrollRef.current = false;
+          setUnreadCount((prev) => ({
+            ...prev,
+            [conversation.other_user_id]: 0,
+          }));
+        }, 200);
+      });
+      return;
+    }
+
+    // If pendingAutoScroll is set but images are loading, don't scroll yet
+    // The scroll will happen in handleMediaLoad when images finish
+    if (
+      pendingAutoScrollRef.current &&
+      imagesToLoad > 0 &&
+      imagesLoaded < imagesToLoad
+    ) {
+      return;
+    }
+  }, [
+    messages,
+    conversation?.other_user_id,
+    savedScroll,
+    setUnreadCount,
+    imagesLoaded,
+    imagesToLoad,
+  ]);
 
   // Intersection observer for read receipts
+
   useEffect(() => {
     if (!chatContainerRef.current) return;
     const container = chatContainerRef.current;
@@ -178,6 +424,7 @@ const PrivateChat = ({
             ) {
               // Update backend
               try {
+                // console.log("📡 Marking message read:", message.id);
                 await axiosbase.put(`/messages/read/private/${message.id}`);
                 // Update locally
                 setMessages((prev) =>
@@ -195,25 +442,25 @@ const PrivateChat = ({
                 }));
 
                 // console.log(message);
-                await PrivateChatStorage.saveMessage(
-                  {
-                    id: message.id,
-                    sender_username: message.sender_username,
-                    chatId: conversation.other_user_id,
-                    sender_id: message.sender_id,
-                    receiver_id: message.receiver_id,
-                    content: message.content,
-                    created_at: message.created_at,
-                    message_type: message.message_type,
-                    is_read: true,
-                    delivered_at: message.delivered_at,
-                    preview: message.preview,
-                    fileUrl: message.fileurl,
-                    fileName: message.filename,
-                    filesize: message.filesize,
-                  },
-                  cryptoKey
-                );
+                // await PrivateChatStorage.saveMessage(
+                //   {
+                //     id: message.id,
+                //     sender_username: message.sender_username,
+                //     chatId: conversation.other_user_id,
+                //     sender_id: message.sender_id,
+                //     receiver_id: message.receiver_id,
+                //     content: message.content,
+                //     created_at: message.created_at,
+                //     message_type: message.message_type,
+                //     is_read: true,
+                //     delivered_at: message.delivered_at,
+                //     preview: message.preview,
+                //     fileUrl: message.fileurl,
+                //     fileName: message.filename,
+                //     filesize: message.filesize,
+                //   },
+                //   cryptoKey
+                // );
               } catch (err) {
                 console.error("Error marking message as read:", err);
               }
@@ -224,122 +471,139 @@ const PrivateChat = ({
       { root: container, threshold: 0.8 }
     ); // 80% visible
 
-    // Observe all message nodes
-    const nodes = container.querySelectorAll("[data-id]");
-    nodes.forEach((node) => observerRef.current.observe(node));
-
-    return () => observerRef.current.disconnect();
-  }, [messages]);
-
-  const pendingsyncdexie = async () => {
-    const token = sessionStorage.getItem("token");
-    if (!token || !cryptoKey) return;
-    try {
-      const userpending = await PrivateChatStorage.pendingmessages(
-        user.userid,
-        cryptoKey,
-        conversation.other_user_id
+    const observeAllMessages = () => {
+      const nodes = container.querySelectorAll(
+        "[data-id]:not([data-observed])"
       );
-      if (!pendingMessagesRef.current[conversation.other_user_id]) {
-        pendingMessagesRef.current[conversation.other_user_id] = [];
-      }
-      for (const msg of userpending) {
-        pendingMessagesRef.current[conversation.other_user_id].push(msg);
-        await resendPendingMessage(msg);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
+      nodes.forEach((node) => {
+        observerRef.current.observe(node);
+        node.setAttribute("data-observed", "true");
+      });
+    };
+    const timeoutId = setTimeout(observeAllMessages, 50);
 
-  const syncreadmessages = async () => {
-    const token = sessionStorage.getItem("token");
-    if (!token || !cryptoKey) return;
+    // Scroll listener to ensure new messages are observed if user scrolls
+    const onScroll = () => observeAllMessages();
+    container.addEventListener("scroll", onScroll);
 
-    try {
-      const response = await axiosbase.get(
-        `/messages/syncread/${conversation.other_user_id}`
-      );
+    return () => {
+      clearTimeout(timeoutId);
+      observerRef.current.disconnect();
+      container.removeEventListener("scroll", onScroll);
+    };
+  }, [messages, user.userid, conversation.other_user_id]);
 
-      const messages = response.data;
+  // const pendingsyncdexie = async () => {
+  //   const token = sessionStorage.getItem("token");
+  //   if (!token || !cryptoKey) return;
+  //   try {
+  //     const userpending = await PrivateChatStorage.pendingmessages(
+  //       user.userid,
+  //       cryptoKey,
+  //       conversation.other_user_id
+  //     );
+  //     if (!pendingMessagesRef.current[conversation.other_user_id]) {
+  //       pendingMessagesRef.current[conversation.other_user_id] = [];
+  //     }
+  //     for (const msg of userpending) {
+  //       pendingMessagesRef.current[conversation.other_user_id].push(msg);
+  //       await resendPendingMessage(msg);
+  //     }
+  //   } catch (error) {
+  //     console.log(error);
+  //   }
+  // };
 
-      await Promise.all(
-        messages.map(async (message) => {
-          await PrivateChatStorage.updateMessageRead(
-            message.receiver_id,
-            message.id
-          );
-        })
-      );
+  // const syncreadmessages = async () => {
+  //   const token = sessionStorage.getItem("token");
+  //   if (!token || !cryptoKey) return;
 
-      // setMessages((prev) =>
-      //   prev.map((m) => (m.id === messages.id ? { ...m, is_read: true } : m))
-      // );
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  //   try {
+  //     const response = await axiosbase.get(
+  //       `/messages/syncread/${conversation.other_user_id}`
+  //     );
+
+  //     const messages = response.data;
+
+  //     await Promise.all(
+  //       messages.map(async (message) => {
+  //         await PrivateChatStorage.updateMessageRead(
+  //           message.receiver_id,
+  //           message.id
+  //         );
+  //       })
+  //     );
+
+  //     // setMessages((prev) =>
+  //     //   prev.map((m) => (m.id === messages.id ? { ...m, is_read: true } : m))
+  //     // );
+  //   } catch (error) {
+  //     console.log(error);
+  //   }
+  // };
 
   const fetchMessages = async (initial = true, prepend = false) => {
     const token = sessionStorage.getItem("token");
-    if (!token || !cryptoKey) return;
+    if (!token) return;
 
-    if (initial) {
-      setoffset((prev) => ({
-        ...prev,
-        [conversation.other_user_id]: 0,
-      }));
-    }
+    // if (!token || !cryptoKey) return;
+
+    // if (initial) {
+    //   setoffset((prev) => ({
+    //     ...prev,
+    //     [conversation.other_user_id]: 0,
+    //   }));
+    // }
 
     try {
       // 1. Try local Dexie first
 
-      const localMsgs = await PrivateChatStorage.getMessages(
-        conversation.other_user_id,
-        cryptoKey,
-        20,
-        initial ? 0 : offset[conversation.other_user_id],
-        user.userid
-      );
+      // const localMsgs = await PrivateChatStorage.getMessages(
+      //   conversation.other_user_id,
+      //   cryptoKey,
+      //   20,
+      //   initial ? 0 : offset[conversation.other_user_id],
+      //   user.userid
+      // );
 
-      if (localMsgs.length && offset[conversation.other_user_id] == undefined) {
-        setMessages((prev) => mergeUniqueById([...localMsgs, ...prev]));
-        setoffset((prev) => ({
-          ...prev,
-          [conversation.other_user_id]:
-            prev[conversation.other_user_id] + localMsgs.length,
-        }));
+      // if (localMsgs.length && offset[conversation.other_user_id] == undefined) {
+      //   setMessages((prev) => mergeUniqueById([...localMsgs, ...prev]));
+      //   setoffset((prev) => ({
+      //     ...prev,
+      //     [conversation.other_user_id]:
+      //       prev[conversation.other_user_id] + localMsgs.length,
+      //   }));
 
-        // console.log(
-        //   `from ${localMsgs[0].receiver_id}`,
-        //   offset[conversation.other_user_id]
-        // );
+      //   // console.log(
+      //   //   `from ${localMsgs[0].receiver_id}`,
+      //   //   offset[conversation.other_user_id]
+      //   // );
 
-        setLoading(false);
-        pendingAutoScrollRef.current = true;
-        return;
-      } else if (localMsgs.length && offset[conversation.other_user_id] !== 0) {
-        setMessages((prev) => mergeUniqueById([...localMsgs, ...prev]));
-        setoffset((prev) => ({
-          ...prev,
-          [conversation.other_user_id]:
-            prev[conversation.other_user_id] + localMsgs.length,
-        }));
+      //   setLoading(false);
+      //   pendingAutoScrollRef.current = true;
+      //   return;
+      // } else if (localMsgs.length && offset[conversation.other_user_id] !== 0) {
+      //   setMessages((prev) => mergeUniqueById([...localMsgs, ...prev]));
+      //   setoffset((prev) => ({
+      //     ...prev,
+      //     [conversation.other_user_id]:
+      //       prev[conversation.other_user_id] + localMsgs.length,
+      //   }));
 
-        // console.log(
-        //   `from ${localMsgs[0].receiver_id}`,
-        //   offset[conversation.other_user_id]
-        // );
-        const container = chatContainerRef.current;
-        const prevHeight = container.scrollHeight;
-        scrollRestoreRef.current = { prevHeight };
-        return;
-      } else if (!localMsgs.length) {
-        setoffset((prev) => ({
-          ...prev,
-          [conversation.other_user_id]: prev[conversation.other_user_id] + 20,
-        }));
-      }
+      //   // console.log(
+      //   //   `from ${localMsgs[0].receiver_id}`,
+      //   //   offset[conversation.other_user_id]
+      //   // );
+      //   const container = chatContainerRef.current;
+      //   const prevHeight = container.scrollHeight;
+      //   scrollRestoreRef.current = { prevHeight };
+      //   return;
+      // } else if (!localMsgs.length) {
+      //   setoffset((prev) => ({
+      //     ...prev,
+      //     [conversation.other_user_id]: prev[conversation.other_user_id] + 20,
+      //   }));
+      // }
 
       // 2. Then sync from server
 
@@ -361,26 +625,26 @@ const PrivateChat = ({
       }
 
       // Save to Dexie (encrypted)
-      for (const msg of response.data) {
-        await PrivateChatStorage.saveMessage(
-          {
-            chatId: conversation.other_user_id,
-            sender_username: msg.sender_username,
-            sender_id: msg.sender_id,
-            receiver_id: msg.receiver_id,
-            content: msg.content,
-            created_at: msg.created_at,
-            message_type: msg.message_type,
-            is_read: msg.is_read,
-            delivered_at: msg.delivered_at,
-            id: msg.id,
-            fileurl: msg.fileurl || null,
-            fielname: msg.filename || null,
-            filesize: msg.filesize || null,
-          },
-          cryptoKey
-        );
-      }
+      // for (const msg of response.data) {
+      //   await PrivateChatStorage.saveMessage(
+      //     {
+      //       chatId: conversation.other_user_id,
+      //       sender_username: msg.sender_username,
+      //       sender_id: msg.sender_id,
+      //       receiver_id: msg.receiver_id,
+      //       content: msg.content,
+      //       created_at: msg.created_at,
+      //       message_type: msg.message_type,
+      //       is_read: msg.is_read,
+      //       delivered_at: msg.delivered_at,
+      //       id: msg.id,
+      //       fileurl: msg.fileurl || null,
+      //       fielname: msg.filename || null,
+      //       filesize: msg.filesize || null,
+      //     },
+      //     cryptoKey
+      //   );
+      // }
 
       setLoading(false);
     } catch (error) {
@@ -444,25 +708,25 @@ const PrivateChat = ({
     pendingAutoScrollRef.current = true;
 
     // Save pending into Dexie
-    if (cryptoKey) {
-      PrivateChatStorage.saveMessage(
-        {
-          id: optimisticMessage.id,
-          chatId: conversation.other_user_id,
-          sender_username: optimisticMessage.sender_username,
-          sender_id: optimisticMessage.sender_id,
-          receiver_id: optimisticMessage.receiver_id,
-          content: optimisticMessage.content,
-          created_at: optimisticMessage.created_at,
-          message_type: optimisticMessage.message_type,
-          is_read: optimisticMessage.is_read,
-          delivered_at: optimisticMessage.delivered_at,
-          status: optimisticMessage.status,
-          tempId: optimisticMessage.tempId,
-        },
-        cryptoKey
-      );
-    }
+    // if (cryptoKey) {
+    //   PrivateChatStorage.saveMessage(
+    //     {
+    //       id: optimisticMessage.id,
+    //       chatId: conversation.other_user_id,
+    //       sender_username: optimisticMessage.sender_username,
+    //       sender_id: optimisticMessage.sender_id,
+    //       receiver_id: optimisticMessage.receiver_id,
+    //       content: optimisticMessage.content,
+    //       created_at: optimisticMessage.created_at,
+    //       message_type: optimisticMessage.message_type,
+    //       is_read: optimisticMessage.is_read,
+    //       delivered_at: optimisticMessage.delivered_at,
+    //       status: optimisticMessage.status,
+    //       tempId: optimisticMessage.tempId,
+    //     },
+    //     cryptoKey
+    //   );
+    // }
 
     try {
       if (!navigator.onLine) throw new Error("Offline");
@@ -487,7 +751,121 @@ const PrivateChat = ({
     }
   };
 
-  const MessageRenderer = ({ message, onDownloadClick }) => {
+  const scrollToBottom = (smooth = false) => {
+    const root = chatContainerRef.current;
+    if (!root) return;
+
+    // Use requestAnimationFrame to ensure DOM is updated
+    requestAnimationFrame(() => {
+      if (!root) return;
+      root.scrollTop = root.scrollHeight;
+      // Also update the atBottom flag
+      const { scrollTop, scrollHeight, clientHeight } = root;
+      const atBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 5;
+      atBottomRef.current = atBottom;
+      setIsAtBottom(atBottom);
+    });
+  };
+
+  const handleMediaLoad = (id, isSender) => {
+    // Skip if this image was already loaded
+    if (loadedImageIdsRef.current.has(id)) {
+      return;
+    }
+
+    loadedImageIdsRef.current.add(id);
+
+    setImagesLoaded((prev) => {
+      const newCount = prev + 1;
+
+      // For sender, ALWAYS scroll to bottom when their image loads
+      // This ensures sender sees their sent image immediately
+      if (isSender) {
+        // Use multiple attempts to ensure scroll happens
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            const container = chatContainerRef.current;
+            if (container) {
+              container.scrollTop = container.scrollHeight;
+              atBottomRef.current = true;
+              setIsAtBottom(true);
+            }
+          }, 200);
+        });
+      }
+
+      // Scroll when all images/videos are loaded
+      if (newCount === imagesToLoad && imagesToLoad > 0) {
+        const wasWaitingForInitial = waitingForInitialImagesRef.current;
+        waitingForInitialImagesRef.current = false;
+
+        // Check current scroll position to see if user is at bottom
+        const container = chatContainerRef.current;
+        let isCurrentlyAtBottom = false;
+        if (container) {
+          const { scrollTop, scrollHeight, clientHeight } = container;
+          isCurrentlyAtBottom =
+            Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+        }
+
+        // Scroll if:
+        // 1. pendingAutoScroll is set (new message arrived and user was at bottom) - HIGHEST PRIORITY
+        // 2. OR It's the initial load (was waiting for images on first open) AND no savedScroll
+        // 3. OR user is currently at the bottom (new message arrived while at bottom)
+        // Note: pendingAutoScroll ALWAYS triggers scroll - this handles receiver at bottom case
+        const shouldScroll =
+          pendingAutoScrollRef.current ||
+          (wasWaitingForInitial &&
+            isInitialLoadRef.current &&
+            savedScroll === null) ||
+          isCurrentlyAtBottom;
+
+        if (shouldScroll) {
+          // Use requestAnimationFrame and setTimeout to ensure DOM is fully updated
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              const container = chatContainerRef.current;
+              if (container) {
+                container.scrollTop = container.scrollHeight;
+                const { scrollTop, scrollHeight, clientHeight } = container;
+                const atBottom =
+                  Math.abs(scrollHeight - scrollTop - clientHeight) < 5;
+                atBottomRef.current = atBottom;
+                setIsAtBottom(atBottom);
+
+                // Mark initial load as complete
+                if (wasWaitingForInitial && isInitialLoadRef.current) {
+                  isInitialLoadRef.current = false;
+                }
+                // Clear pending auto scroll
+                if (pendingAutoScrollRef.current) {
+                  pendingAutoScrollRef.current = false;
+                  setUnreadCount((prev) => ({
+                    ...prev,
+                    [conversation.other_user_id]: 0,
+                  }));
+                }
+              }
+            }, 200);
+          });
+        }
+      }
+
+      return newCount;
+    });
+  };
+
+  const MessageRenderer = ({ message, onDownloadClick, chatContainerRef }) => {
+    const ts =
+      message.delivered_at || message.created_at || new Date().toISOString();
+
+    const ageMs = Date.now() - new Date(ts).getTime();
+
+    const isOptimistic = String(message.tempId || "").startsWith("temp-");
+    const isRecent = ageMs >= 0 && ageMs < 5_000; // 5s window for "new" messages
+    const messageId = message.id || message.tempId;
+    const isSender = message.sender_id === user.userid;
+
     switch (message.message_type) {
       case "text":
         return <TextMessage message={message} user={user} />;
@@ -497,14 +875,24 @@ const PrivateChat = ({
             message={message}
             onDownloadClick={onDownloadClick}
             user={user}
+            chatContainerRef={chatContainerRef}
+            onLoad={() =>
+              handleMediaLoad(message.id || message.tempId, isSender)
+            }
+            atBottomRef={atBottomRef}
+            pendingAutoScrollRef={pendingAutoScrollRef}
+            isRecent={isRecent}
+            isOptimistic={isOptimistic}
           />
         );
+
       case "video":
         return (
           <VideoMessage
             message={message}
             onDownloadClick={onDownloadClick}
             user={user}
+            chatContainerRef={chatContainerRef}
           />
         );
 
@@ -514,6 +902,7 @@ const PrivateChat = ({
             message={message}
             onDownloadClick={onDownloadClick}
             user={user}
+            chatContainerRef={chatContainerRef}
           />
         );
       default:
@@ -522,6 +911,7 @@ const PrivateChat = ({
             message={message}
             onDownloadClick={onDownloadClick}
             user={user}
+            chatContainerRef={chatContainerRef}
           />
         );
     }
@@ -688,30 +1078,30 @@ const PrivateChat = ({
           optimisticMessage
         );
       }
-      if (cryptoKey) {
-        await PrivateChatStorage.saveMessage(
-          {
-            chatId: conversation.other_user_id,
-            id: optimisticMessage.tempId,
-            tempId: optimisticMessage.tempId,
-            content: optimisticMessage.content,
-            filename: optimisticMessage.filename,
-            filesize: optimisticMessage.filesize,
-            sender_id: optimisticMessage.sender_id,
-            receiver_id: optimisticMessage.receiver_id,
-            sender_username: optimisticMessage.sender_username,
-            created_at: optimisticMessage.created_at,
-            is_read: optimisticMessage.is_read,
-            delivered_at: optimisticMessage.delivered_at,
-            status: "pending",
-            message_type: optimisticMessage.message_type,
-            preview: optimisticMessage.preview,
-            uploadProgress: optimisticMessage.uploadProgress,
-            downloadProgress: optimisticMessage.downloadProgress,
-          },
-          cryptoKey
-        );
-      }
+      // if (cryptoKey) {
+      //   await PrivateChatStorage.saveMessage(
+      //     {
+      //       chatId: conversation.other_user_id,
+      //       id: optimisticMessage.tempId,
+      //       tempId: optimisticMessage.tempId,
+      //       content: optimisticMessage.content,
+      //       filename: optimisticMessage.filename,
+      //       filesize: optimisticMessage.filesize,
+      //       sender_id: optimisticMessage.sender_id,
+      //       receiver_id: optimisticMessage.receiver_id,
+      //       sender_username: optimisticMessage.sender_username,
+      //       created_at: optimisticMessage.created_at,
+      //       is_read: optimisticMessage.is_read,
+      //       delivered_at: optimisticMessage.delivered_at,
+      //       status: "pending",
+      //       message_type: optimisticMessage.message_type,
+      //       preview: optimisticMessage.preview,
+      //       uploadProgress: optimisticMessage.uploadProgress,
+      //       downloadProgress: optimisticMessage.downloadProgress,
+      //     },
+      //     cryptoKey
+      //   );
+      // }
 
       // Upload file to server
       try {
@@ -725,7 +1115,7 @@ const PrivateChat = ({
     e.target.value = ""; // reset input
   };
 
-  if (!cryptoKey || loading) {
+  if (loading) {
     return (
       <div className={classes.chatLoading}>
         <div className={classes.loadingSpinner}></div>
