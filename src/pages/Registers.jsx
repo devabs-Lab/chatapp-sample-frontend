@@ -191,7 +191,7 @@ function Registers() {
         email: signData.email,
         password: signData.password,
       });
-      console.log(res);
+      // console.log(res);
       if (res.status === 200) {
         showSuccessAlert("Login Successful", "Click OK to continue", () => {
           setuser(res?.data);

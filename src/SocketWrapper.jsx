@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { Appstate } from "./App";
 import { useSocket } from "./Socketprovider";
-import { CryptoContext } from "./App";
-import { PrivateChatStorage } from "./db/dexieDB.js";
+// import { CryptoContext } from "./App";
+// import { PrivateChatStorage } from "./db/dexieDB.js";
 import axiosbase from "./axiosconfig.js";
 
 const SocketWrapper = ({ children }) => {
-  const { cryptoKey } = useContext(CryptoContext);
+  // const { cryptoKey } = useContext(CryptoContext);
   const { user } = useContext(Appstate);
   const socket = useSocket();
 
@@ -14,6 +14,7 @@ const SocketWrapper = ({ children }) => {
   const pendingAutoScrollRef = useRef(false);
   const hydratedChatsRef = useRef({});
   const pendingMessagesRef = useRef({});
+  const activeUploadsRef = useRef({});
 
   const [offset, setoffset] = useState({});
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -35,16 +36,15 @@ const SocketWrapper = ({ children }) => {
     return Array.from(map.values()).sort(
       (a, b) =>
         new Date(a.delivered_at || a.created_at) -
-        new Date(b.delivered_at || b.created_at)
+        new Date(b.delivered_at || b.created_at),
     );
   };
 
   useEffect(() => {
-    if (!socket || !cryptoKey) return;
-    const interval = setInterval(() => {
-      if (!navigator.onLine) return;
+    const handleOnline = () => {
+      console.log("Internet restored → retrying uploads");
 
-      Object.entries(pendingMessagesRef.current).forEach(([userId, msgs]) => {
+      Object.values(pendingMessagesRef.current).forEach((msgs) => {
         msgs.forEach((msg) => {
           if (msg.message_type === "text") {
             resendPendingMessage(msg);
@@ -53,13 +53,50 @@ const SocketWrapper = ({ children }) => {
           }
         });
       });
-    }, 3000);
+    };
 
-    return () => clearInterval(interval);
-  }, [socket, cryptoKey]);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   useEffect(() => {
-    if (!socket || !cryptoKey || !user?.userid) return;
+    const handleBeforeUnload = () => {
+      Object.values(activeUploadsRef.current).forEach((controller) => {
+        controller.abort();
+      });
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
+  // useEffect(() => {
+  //   if (!socket) return;
+  //   const interval = setInterval(() => {
+  //     if (!navigator.onLine) return;
+
+  //     Object.entries(pendingMessagesRef.current).forEach(([userId, msgs]) => {
+  //       msgs.forEach((msg) => {
+  //         if (msg.message_type === "text") {
+  //           resendPendingMessage(msg);
+  //         } else {
+  //           sendFileToServer(msg);
+  //         }
+  //       });
+  //     });
+  //   }, 8000);
+
+  //   return () => clearInterval(interval);
+  // }, [socket]);
+
+  useEffect(() => {
+    if (!socket || !user?.userid) return;
 
     const handleIncomingmessage = (message) => {
       const otherUserId =
@@ -76,7 +113,10 @@ const SocketWrapper = ({ children }) => {
             ...prev,
             [otherUserId]: (prev[otherUserId] || 0) + 1,
           }));
+
+          // console.log(atBottomRef.current);
         } else {
+          // console.log(atBottomRef.current);
           pendingAutoScrollRef.current = true;
         }
 
@@ -99,19 +139,25 @@ const SocketWrapper = ({ children }) => {
     };
 
     const handleMessageRead = ({ messageId, receiver_id }) => {
+      // console.log(messageId, "and", receiver_id);
       if (selectedConversation?.other_user_id === receiver_id) {
+        console.log(selectedConversation?.other_user_id);
+        // console.log("it worked from inside");
         setMessages((prev) =>
-          prev.map((m) => (m.id === messageId ? { ...m, is_read: true } : m))
+          prev.map((m) => {
+            return m.id === messageId ? { ...m, is_read: true } : m;
+          }),
         );
       } else {
+        console.log("it worked");
         markerCache(receiver_id, messageId);
       }
 
-      try {
-        PrivateChatStorage.updateMessageRead(receiver_id, messageId);
-      } catch (error) {
-        console.log(error);
-      }
+      // try {
+      //   PrivateChatStorage.updateMessageRead(receiver_id, messageId);
+      // } catch (error) {
+      //   console.log(error);
+      // }
     };
 
     const fetchUnreadMessages = async () => {
@@ -122,7 +168,7 @@ const SocketWrapper = ({ children }) => {
 
         for (const msg of unreadMessages) {
           const alreadyInCache = messagesCache[msg.sender_id]?.some(
-            (m) => m.id === msg.id
+            (m) => m.id === msg.id,
           );
           if (!alreadyInCache) {
             const belongsToCurrentChat =
@@ -176,9 +222,14 @@ const SocketWrapper = ({ children }) => {
       socket.off("receive-private-message", handleIncomingmessage);
       window.removeEventListener("online", handleOnline);
     };
-  }, [socket, cryptoKey, user?.userid, selectedConversation?.other_user_id]);
+  }, [socket, user?.userid, selectedConversation?.other_user_id]);
 
   const resendPendingMessage = async (msg) => {
+    if (!msg.tempId) {
+      console.error("No file attached to message:", msg);
+      return;
+    }
+    console.log("Retrying message:", msg);
     try {
       const response = await axiosbase.post(
         `/messages/private/${msg.receiver_id}`,
@@ -186,46 +237,47 @@ const SocketWrapper = ({ children }) => {
           content: msg.content,
           message_type: msg.message_type,
           delivered_at: msg.delivered_at,
-        }
+        },
       );
 
       const backendMessage = response.data.data;
 
       setMessages((prev) =>
         prev.map((m) =>
-          m.tempId === msg.tempId ? { ...backendMessage, status: "sent" } : m
-        )
+          m.tempId === msg.tempId ? { ...backendMessage, status: "sent" } : m,
+        ),
       );
 
       pendingMessagesRef.current[msg.receiver_id] = pendingMessagesRef.current[
         msg.receiver_id
       ].filter((m) => m.tempId !== msg.tempId);
 
-      socket.emit("new-private-message", {
-        ...backendMessage,
-        sender_username: user.username,
-      });
-      // Save confirmed message into Dexie
-      if (cryptoKey) {
-        try {
-          await PrivateChatStorage.deletemessage(
-            backendMessage.receiver_id,
-            msg.tempId
-          );
-        } catch (error) {
-          console.log("Error deleting message from Dexie:", error);
-        }
-        await PrivateChatStorage.saveMessage(
-          {
-            ...backendMessage,
-            chatId: backendMessage.receiver_id,
-            status: "sent",
-          },
-          cryptoKey
-        );
+      // socket.emit("new-private-message", {
+      //   ...backendMessage,
+      //   sender_username: user.username,
+      // });
 
-        console.log("Message saved into Dexie:", backendMessage.id);
-      }
+      // Save confirmed message into Dexie
+      // if (cryptoKey) {
+      //   try {
+      //     await PrivateChatStorage.deletemessage(
+      //       backendMessage.receiver_id,
+      //       msg.tempId
+      //     );
+      //   } catch (error) {
+      //     console.log("Error deleting message from Dexie:", error);
+      //   }
+      //   await PrivateChatStorage.saveMessage(
+      //     {
+      //       ...backendMessage,
+      //       chatId: backendMessage.receiver_id,
+      //       status: "sent",
+      //     },
+      //     cryptoKey
+      //   );
+
+      //   console.log("Message saved into Dexie:", backendMessage.id);
+      // }
     } catch (err) {
       // keep as pending, will retry in next interval
       console.warn("Retry failed, still pending:", msg.content);
@@ -236,31 +288,51 @@ const SocketWrapper = ({ children }) => {
     try {
       if (!navigator.onLine) throw new Error("Offline");
 
+      const controller = new AbortController();
+      activeUploadsRef.current[msg.tempId] = controller;
+
       const formData = new FormData();
       formData.append("file", msg.file);
+      formData.append("tempId", msg.tempId);
       formData.append("receiver_id", msg.receiver_id);
       formData.append("message_type", msg.message_type);
       formData.append("delivered_at", msg.delivered_at);
       formData.append("sender_id", msg.sender_id);
+      formData.append("width", msg.width);
+      formData.append("height", msg.height);
+      formData.append("aspect_ratio", msg.aspect_ratio);
+      formData.append("duration", msg.duration);
 
       // add more metadata if needed
 
+      // if (msg.tempId) {
+      //   console.error("No file attached to message:", msg);
+      //   return;
+      // }
+
       const res = await axiosbase.post("/messages/file/private", formData, {
+        signal: controller.signal,
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 30000, // 30 sec timeout protection
         onUploadProgress: (progressEvent) => {
+          if (!progressEvent.total) return;
+
           const percent = Math.round(
-            (progressEvent.loaded * 100) / (progressEvent.total || 0)
+            (progressEvent.loaded * 100) / progressEvent.total,
           );
+
           setMessages((prev) =>
             prev.map((m) =>
-              m.tempId === msg.tempId ? { ...m, uploadProgress: percent } : m
-            )
+              m.tempId === msg.tempId ? { ...m, uploadProgress: percent } : m,
+            ),
           );
+          console.log("Upload progress for", msg.tempId, ":", percent + "%");
         },
       });
 
+      delete activeUploadsRef.current[msg.tempId];
       const serverMsg = res.data;
-      //   console.log(serverMsg);
+      // console.log(serverMsg);
 
       setMessages((prev) =>
         prev.map((m) =>
@@ -269,45 +341,52 @@ const SocketWrapper = ({ children }) => {
                 ...serverMsg,
                 status: "sent",
                 uploadProgress: 100,
-                fileurl: msg.fileurl,
+                fileUrl: msg.fileurl,
               }
-            : m
-        )
+            : m,
+        ),
       );
 
       if (pendingMessagesRef?.current?.[msg.receiver_id]) {
         pendingMessagesRef.current[msg.receiver_id] =
           pendingMessagesRef.current[msg.receiver_id].filter(
-            (m) => m.tempId !== msg.tempId
+            (m) => m.tempId !== msg.tempId,
           );
       }
 
-      socket.emit("new-private-message", {
-        ...serverMsg,
-        preview: msg.preview,
-        sender_username: user.username,
-      });
+      // socket.emit("new-private-message", {
+      //   ...serverMsg,
+      //   preview: msg.preview,
+      //   sender_username: user.username,
+      // });
 
       //   Save to Dexie
-      if (cryptoKey) {
-        try {
-          await PrivateChatStorage.deletemessage(msg.receiver_id, msg.tempId);
-        } catch (error) {
-          console.log("Error deleting message from Dexie:", error);
-        }
-        await PrivateChatStorage.saveMessage(
-          {
-            ...serverMsg,
-            chatId: serverMsg.receiver_id,
-            status: "sent",
-            preview: msg.preview,
-            sender_username: user.username,
-          },
-          cryptoKey
-        );
-      }
+      // if (cryptoKey) {
+      //   try {
+      //     await PrivateChatStorage.deletemessage(msg.receiver_id, msg.tempId);
+      //   } catch (error) {
+      //     console.log("Error deleting message from Dexie:", error);
+      //   }
+      //   await PrivateChatStorage.saveMessage(
+      //     {
+      //       ...serverMsg,
+      //       chatId: serverMsg.receiver_id,
+      //       status: "sent",
+      //       preview: msg.preview,
+      //       sender_username: user.username,
+      //     },
+      //     cryptoKey
+      //   );
+      // }
     } catch (err) {
       console.error("File upload failed:", err);
+      // console.log("Upload failed → will retry automatically");
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.tempId === msg.tempId ? { ...m, status: "pending" } : m,
+        ),
+      );
     }
   };
 
@@ -325,7 +404,7 @@ const SocketWrapper = ({ children }) => {
     setMessagesCache((prev) => ({
       ...prev,
       [other_user_id]: prev[other_user_id].map((m) =>
-        m.id === messageId ? { ...m, is_read: true } : m
+        m.id === messageId ? { ...m, is_read: true } : m,
       ),
     }));
   };
@@ -347,6 +426,7 @@ const SocketWrapper = ({ children }) => {
     pendingAutoScrollRef,
     hydratedChatsRef,
     pendingMessagesRef,
+    activeUploadsRef,
     updateCache,
   });
 };

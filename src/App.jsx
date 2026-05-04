@@ -1,7 +1,7 @@
 import Registers from "./pages/Registers";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import "./App.css";
-import React, { useState, useEffect, createContext, useRef } from "react";
+import { useState, useEffect, createContext } from "react";
 import Socketprovider from "./Socketprovider";
 import SocketWrapper from "./SocketWrapper";
 import axiosbase from "./axiosconfig";
@@ -28,6 +28,7 @@ function App() {
   async function check() {
     try {
       const { data } = await axiosbase.get("/users/check");
+      console.log(data);
       setuser(data);
     } catch (error) {
       console.log(error?.response);
@@ -77,6 +78,7 @@ function App() {
               pendingAutoScrollRef,
               hydratedChatsRef,
               pendingMessagesRef,
+              activeUploadsRef,
               updateCache,
               resendPendingMessage,
             }) => (
@@ -107,6 +109,7 @@ function App() {
                         setoffset={setoffset}
                         resendPendingMessage={resendPendingMessage}
                         pendingMessagesRef={pendingMessagesRef}
+                        activeUploadsRef={activeUploadsRef}
                         sendFileToServer={sendFileToServer}
                       />
                     }

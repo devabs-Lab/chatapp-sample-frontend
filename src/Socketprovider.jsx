@@ -6,6 +6,7 @@ export const useSocket = () => useContext(SocketContext);
 import { Appstate } from "./App";
 
 const Socketprovider = ({ children }) => {
+  // console.log(user);
   const { user } = useContext(Appstate);
   const [socket, setSocket] = useState(null);
 

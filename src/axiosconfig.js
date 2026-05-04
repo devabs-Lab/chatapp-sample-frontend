@@ -7,7 +7,8 @@ const axiosbase = axios.create({
 
 // Attach Authorization header automatically if token exists
 axiosbase.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
+  // console.log("Axios request token:", token);
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -23,7 +24,7 @@ axiosbase.interceptors.response.use(
     }
     return response;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 export default axiosbase;
