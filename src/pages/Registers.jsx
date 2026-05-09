@@ -181,17 +181,19 @@ function Registers() {
     e.preventDefault();
     const currentErrors = {};
     setToperrs("");
-    if ((Object.keys(currentErrors).length = 0)) {
+    if (Object.keys(currentErrors).length > 0) {
       setErrors(currentErrors);
       return;
     }
+    console.log("login clicked");
+    console.log(import.meta.env.VITE_API_URL);
 
     try {
       const res = await axiosbase.post("/users/login", {
         email: signData.email,
         password: signData.password,
       });
-      // console.log(res);
+      console.log(res.data);
       if (res.status === 200) {
         showSuccessAlert("Login Successful", "Click OK to continue", () => {
           setuser(res?.data);
@@ -203,6 +205,10 @@ function Registers() {
       console.log(error.response);
 
       setToperrs(error?.response?.data?.msg);
+      showErrorAlert(
+        "Login Failed",
+        error?.response?.data?.msg || "Something went wrong",
+      );
     }
   }
 
