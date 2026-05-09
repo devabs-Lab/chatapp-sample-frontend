@@ -37,14 +37,23 @@ function App() {
       setuser(data);
     } catch (error) {
       console.log("tell me this error", error);
+
+      sessionStorage.removeItem("token");
+
       navigate("/login");
-      return;
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
+    const token = sessionStorage.getItem("token");
+
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     check();
   }, []);
 
