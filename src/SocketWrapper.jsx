@@ -35,8 +35,8 @@ const SocketWrapper = ({ children }) => {
     // }
     return Array.from(map.values()).sort(
       (a, b) =>
-        new Date(a.delivered_at || a.created_at) -
-        new Date(b.delivered_at || b.created_at),
+        new Date(a.delivered_at || a.created_at || 0) -
+        new Date(b.delivered_at || b.created_at || 0),
     );
   };
 
@@ -67,6 +67,7 @@ const SocketWrapper = ({ children }) => {
       Object.values(activeUploadsRef.current).forEach((controller) => {
         controller.abort();
       });
+      activeUploadsRef.current = {};
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -213,6 +214,9 @@ const SocketWrapper = ({ children }) => {
     };
 
     window.addEventListener("online", handleOnline);
+
+    socket.off("receive-private-message");
+    socket.off("message-read");
 
     socket.on("receive-private-message", handleIncomingmessage);
     socket.on("message-read", handleMessageRead);

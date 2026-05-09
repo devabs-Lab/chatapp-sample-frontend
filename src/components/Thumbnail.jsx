@@ -401,7 +401,8 @@ export const VideoMessage = React.memo(
         type: "video",
         sources: [
           {
-            src: `http://localhost:5500/api/messages/file/download/${message.id}?token=${sessionStorage.getItem("token")}`,
+            // src: `http://localhost:5500/api/messages/file/download/${message.id}?token=${sessionStorage.getItem("token")}`, this is for local streaming
+            src: message.fileurl || message.fileUrl,
             type: message.mime_type || "video/mp4",
           },
         ],
@@ -438,13 +439,8 @@ export const VideoMessage = React.memo(
                   style={{
                     aspectRatio: `${message.aspect_ratio}`,
                     width: message.width,
-                    maxWidth: "30vw",
-                    maxHeight: "60vh",
-                    borderRadius: "12px",
-                    background: "black",
-                    overflow: "hidden",
-                    position: "relative",
                   }}
+                  className={classes.video_container}
                 >
                   <Plyr
                     ref={videoRef}
@@ -544,13 +540,8 @@ export const VideoMessage = React.memo(
                 style={{
                   aspectRatio: `${message.aspect_ratio}`,
                   width: message.width,
-                  maxWidth: "30vw",
-                  maxHeight: "60vh",
-                  borderRadius: "12px",
-                  background: "black",
-                  overflow: "hidden",
-                  position: "relative",
                 }}
+                className={classes.video_container}
               >
                 <Plyr
                   ref={videoRef}
@@ -575,6 +566,7 @@ export const VideoMessage = React.memo(
                 {/* {message.filename || message.content}{" "} */}
                 {formatFileSize(message.filesize)}
               </div>
+
               {message.sender_id === user.userid && (
                 <span className={classes.messageStatus}>
                   {message.status === "pending"
@@ -629,9 +621,10 @@ export const VideoMessage = React.memo(
               preload="metadata"
               controlsList="nofullscreen"
               // poster={message.thumburl} // 👈 thumbnail
-              src={`http://localhost:5500/api/messages/file/download/${
-                message.id
-              }?token=${sessionStorage.getItem("token")}`}
+              // src={`http://localhost:5500/api/messages/file/download/${
+              //   message.id
+              // }?token=${sessionStorage.getItem("token")}`} this is for local streaming
+              src={message.fileurl || message.fileUrl}
               className={classes.senderpreview_video}
               // onClick={handleClick}
             />
@@ -771,7 +764,8 @@ export const AudioMessage = React.memo(
         type: "audio",
         sources: [
           {
-            src: `http://localhost:5500/api/messages/file/download/${message.id}?token=${sessionStorage.getItem("token")}`,
+            // src: `http://localhost:5500/api/messages/file/download/${message.id}?token=${sessionStorage.getItem("token")}`, this is for local streaming
+            src: message.fileurl || message.fileUrl,
             type: message.mime_type || "audio/mpeg",
           },
         ],
@@ -1075,12 +1069,20 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
   const isPaused = message.isPaused;
   const progress = message.uploadProgress ?? message.downloadProgress;
 
+  // this is for local file streaming
+
+  // const handleOpen = () => {
+  //   window.open(
+  //     `http://localhost:5500/api/messages/file/download/${message.id}?token=${sessionStorage.getItem("token")}`,
+  //     "_blank",
+  //   );
+  //   return;
+  // };
+
+  // here for cloud streaming
+
   const handleOpen = () => {
-    window.open(
-      `http://localhost:5500/api/messages/file/download/${message.id}?token=${sessionStorage.getItem("token")}`,
-      "_blank",
-    );
-    return;
+    window.open(message.fileurl, "_blank");
   };
 
   const SpinnerWrapper = ({ progress, onCancel }) => {

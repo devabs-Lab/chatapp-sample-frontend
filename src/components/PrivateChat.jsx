@@ -20,6 +20,7 @@ import {
   FiBriefcase,
   FiPaperclip,
   FiMoreVertical,
+  FiArrowLeft,
 } from "react-icons/fi";
 import { IoMdSend, IoMdPerson, IoMdClose } from "react-icons/io";
 import { Plyr } from "plyr-react";
@@ -58,6 +59,8 @@ const PrivateChat = ({
   onSaveScroll,
   // offset,
   // setoffset,
+  setMobileView,
+  isMobile,
   sendFileToServer,
 }) => {
   const { user } = useContext(Appstate);
@@ -1094,6 +1097,7 @@ const PrivateChat = ({
     const controller = new AbortController();
     controllers.current[fileIdentifier] = controller;
     // const isDownloaded = !!message.fileUrl;
+
     // start progress
     setMessages((prev) =>
       prev.map(
@@ -1384,14 +1388,6 @@ const PrivateChat = ({
     setSelectedVideo(message.fileUrl);
   };
 
-  // const handleAudioClick = (message) => {
-  //   setSelectedAudio(message.fileUrl);
-  // };
-
-  const handleFilesClick = (message) => {
-    setSelectedFile(message.fileUrl);
-  };
-
   const imageMessages = messages?.filter((m) => m.message_type === "image");
   const videoMessages = messages?.filter(
     (m) => m.message_type === "video" && m.aspect_ratio < 2,
@@ -1443,13 +1439,10 @@ const PrivateChat = ({
       </div>
     );
   };
-  const handleOpen = () => {
-    window.open(
-      `http://localhost:5500/api/messages/file/download/${message.id}?token=${sessionStorage.getItem("token")}`,
-      "_blank",
-    );
-    return;
+  const handleOpen = (message) => {
+    window.open(message.fileurl, "_blank");
   };
+
   const formatFileSize = (bytes) => {
     if (!bytes && bytes !== 0) return "";
 
@@ -1475,7 +1468,7 @@ const PrivateChat = ({
   return (
     <>
       <div className={classes.privateChatContainer}>
-        {/* Chat Header */}
+        {/* Other Profile Container */}
         <div
           ref={profileScrollRef}
           className={`${classes.otherprofileContainer} ${showotherprofile ? classes.showotherprofile : classes.hideotherprofile}`}
@@ -1505,19 +1498,17 @@ const PrivateChat = ({
               {!enlargeProfileImage && (
                 <div className={classes.otherprofileCardinner}>
                   <label>
-                    <div
-                      className={classes.otherprofileAvatarWrapper}
-                      onClick={() => {
-                        setEnlargeProfileImage(true);
-                        lastScrollTop.current =
-                          profileScrollRef.current.scrollTop;
-                      }}
-                    >
+                    <div className={classes.otherprofileAvatarWrapper}>
                       {conversation.avatar_url ? (
                         <img
-                          src={`http://localhost:5500${conversation.avatar_url}`}
+                          src={conversation.avatar_url}
                           alt=""
                           className={classes.otherprofileAvatar}
+                          onClick={() => {
+                            setEnlargeProfileImage(true);
+                            lastScrollTop.current =
+                              profileScrollRef.current.scrollTop;
+                          }}
                         />
                       ) : (
                         <IoMdPerson
@@ -1550,7 +1541,7 @@ const PrivateChat = ({
                   </div>
 
                   <img
-                    src={`http://localhost:5500${conversation.avatar_url}`}
+                    src={conversation.avatar_url}
                     alt="Profile"
                     className={classes.profileImageLarge}
                     onClick={() => setEnlargeProfileImage(false)}
@@ -1977,13 +1968,21 @@ const PrivateChat = ({
         {/* chat header  */}
 
         <div className={classes.chatHeader}>
+          {isMobile && (
+            <button
+              onClick={() => setMobileView("list")}
+              className={classes.backbutton}
+            >
+              <FiArrowLeft />
+            </button>
+          )}
           <label
             className={classes.avatarWrapper}
             onClick={handleotherprofiledetail}
           >
             {conversation.avatar_url ? (
               <img
-                src={`http://localhost:5500${conversation.avatar_url}`}
+                src={conversation.avatar_url}
                 alt="avatar"
                 className={classes.avatar}
               />
@@ -1998,7 +1997,6 @@ const PrivateChat = ({
           >
             <h3>{conversation.other_username}</h3>
             <p className={classes.status}>{otherUser?.status || "offline"}</p>
-            {/* <p>Private conversation</p> */}
           </div>
 
           <div className={classes.chatHeaderActions}>
@@ -2018,7 +2016,9 @@ const PrivateChat = ({
           onScroll={handleScroll}
           className={classes.messagesArea}
         >
-          <div className={classes.messagesInner}>
+          <div
+            className={`${classes.messagesInner} ${messages?.length === 0 ? classes.nomessage : ""} `}
+          >
             {messages?.length === 0 ? (
               <div className={classes.emptyMessages}>
                 <p>No messages yet. Start the conversation!</p>
@@ -2038,6 +2038,7 @@ const PrivateChat = ({
             )}
           </div>
         </div>
+
         {!isAtBottom && (unreadCount[conversation.other_user_id] || 0) > 0 && (
           <button
             onClick={() => {
@@ -2056,6 +2057,7 @@ const PrivateChat = ({
               : "message"}
           </button>
         )}
+
         {/* Message Input */}
         <form className={classes.messageInput} onSubmit={handleSendMessage}>
           {/* Left side: Emoji button */}
@@ -2098,7 +2100,4 @@ const PrivateChat = ({
   );
 };
 
-// console.log("MessageRenderer init");
-
 export default PrivateChat;
-// console.log("MessageRenderer init");

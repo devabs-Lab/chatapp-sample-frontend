@@ -16,23 +16,31 @@ export const CryptoContext = createContext();
 
 function App() {
   const [user, setuser] = useState({});
-
+  const [loading, setLoading] = useState(true);
   // Crypto key for this user (derived from user.userid)
   const [cryptoKey, setCryptoKey] = useState(null);
 
   const navigate = useNavigate();
-  const token = sessionStorage.getItem("token");
-  if (token) {
-    axiosbase.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-  }
+  useEffect(() => {
+    const token = sessionStorage.getItem("token");
+
+    if (token) {
+      axiosbase.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    } else {
+      delete axiosbase.defaults.headers.common["Authorization"];
+    }
+  }, [sessionStorage.getItem("token")]);
+
   async function check() {
     try {
       const { data } = await axiosbase.get("/users/check");
-      console.log(data);
       setuser(data);
     } catch (error) {
-      console.log(error?.response);
+      console.log("tell me this error", error);
       navigate("/login");
+      return;
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -40,23 +48,31 @@ function App() {
     check();
   }, []);
 
-  useEffect(() => {
-    if (!user.userid) return;
-    let mounted = true;
-    const loadDeviceKey = async () => {
-      try {
-        const key = await getOrCreateDeviceKey(user.userid); // persistent per-device AES key
-        if (mounted) setCryptoKey(key);
-      } catch (err) {
-        console.error("Error loading device key:", err);
-      }
-    };
-    loadDeviceKey();
-    return () => {
-      mounted = false;
-    };
-  }, [user?.userid]);
+  // useEffect(() => {
+  //   if (!user.userid) return;
+  //   let mounted = true;
+  //   const loadDeviceKey = async () => {
+  //     try {
+  //       const key = await getOrCreateDeviceKey(user.userid); // persistent per-device AES key
+  //       if (mounted) setCryptoKey(key);
+  //     } catch (err) {
+  //       console.error("Error loading device key:", err);
+  //     }
+  //   };
+  //   loadDeviceKey();
+  //   return () => {
+  //     mounted = false;
+  //   };
+  // }, [user?.userid]);
 
+  if (loading) {
+    return (
+      <div className={"chatLoading"}>
+        <div className={"loadingSpinner"}></div>
+        <p>Loading messages...</p>
+      </div>
+    );
+  }
   return (
     <Appstate.Provider value={{ user, setuser }}>
       <CryptoContext.Provider value={{ cryptoKey }}>
