@@ -21,39 +21,27 @@ function App() {
   const [cryptoKey, setCryptoKey] = useState(null);
 
   const navigate = useNavigate();
-  useEffect(() => {
-    const token = sessionStorage.getItem("token");
 
-    if (token) {
-      axiosbase.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    } else {
-      delete axiosbase.defaults.headers.common["Authorization"];
-    }
-  }, [sessionStorage.getItem("token")]);
+  const token = sessionStorage.getItem("token");
+
+  if (token) {
+    axiosbase.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  } else {
+    delete axiosbase.defaults.headers.common["Authorization"];
+  }
 
   async function check() {
     try {
       const { data } = await axiosbase.get("/users/check");
+      console.log(data);
       setuser(data);
     } catch (error) {
-      console.log("tell me this error", error);
-
-      sessionStorage.removeItem("token");
-
+      console.log(error?.response);
       navigate("/login");
-    } finally {
-      setLoading(false);
     }
   }
 
   useEffect(() => {
-    const token = sessionStorage.getItem("token");
-
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
     check();
   }, []);
 
