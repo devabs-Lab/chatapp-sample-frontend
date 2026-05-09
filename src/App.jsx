@@ -16,7 +16,7 @@ export const CryptoContext = createContext();
 
 function App() {
   const [user, setuser] = useState({});
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
   // Crypto key for this user (derived from user.userid)
   const [cryptoKey, setCryptoKey] = useState(null);
 
@@ -62,14 +62,14 @@ function App() {
   //   };
   // }, [user?.userid]);
 
-  if (loading) {
-    return (
-      <div className={"chatLoading"}>
-        <div className={"loadingSpinner"}></div>
-        <p>Loading messages...</p>
-      </div>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <div className={"chatLoading"}>
+  //       <div className={"loadingSpinner"}></div>
+  //       <p>Loading messages...</p>
+  //     </div>
+  //   );
+  // }
   return (
     <Appstate.Provider value={{ user, setuser }}>
       <CryptoContext.Provider value={{ cryptoKey }}>
