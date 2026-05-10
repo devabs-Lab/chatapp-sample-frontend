@@ -492,11 +492,6 @@
   background: none;
   border-radius: 20px;
   margin-bottom: 1px;
-  /* background-image: url("../../public/paper-plane.png"); */
-
-  /* background-size: 70%; make sure it fills */
-  /* background-position: left; center the icon */
-  /* background-repeat: no-repeat; */
   width: 35px;
   height: 35px;
 }

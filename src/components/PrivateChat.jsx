@@ -1075,90 +1075,143 @@ const PrivateChat = ({
       return newCount;
     });
   };
+  //  this one for deployment using direct cloudinary
 
   const downloadFile = async (message) => {
-    if (message.tempId) {
+    if (!message?.fileurl) {
+      console.error("No file URL found");
       return;
     }
 
-    const existingBytes = message.downloadedBytes || 0;
-
-    const fileIdentifier = message.id;
-    if (!fileIdentifier) {
-      console.error("No file identifier to download");
-      return;
-    }
-
-    // 🚫 Videos are streamed by the browser — do nothing
-    // if (message.message_type === "video") {
-    //   // console.log("Video uses native streaming:", fileIdentifier);
-    //   return;
-    // }
-
-    const controller = new AbortController();
-    controllers.current[fileIdentifier] = controller;
-    // const isDownloaded = !!message.fileUrl;
-
-    // start progress
     setMessages((prev) =>
-      prev.map(
-        (m) =>
-          m.id === message.id
-            ? { ...m, isDownloading: true, isPaused: false }
-            : m,
-        6,
+      prev.map((m) =>
+        m.id === message.id ? { ...m, isDownloading: true } : m,
       ),
     );
 
     try {
-      const downloadUrl = `/messages/file/download/${fileIdentifier}`;
-      const response = await axiosbase.get(downloadUrl, {
-        responseType: "blob",
-        headers: existingBytes ? { Range: `bytes=${existingBytes}-` } : {},
-        signal: controller.signal,
-        onDownloadProgress: (e) => {
-          const total = message.filesize;
-          const loaded = existingBytes + e.loaded;
+      const response = await fetch(message.fileurl);
+      const blob = await response.blob();
 
-          const percent = Math.floor((loaded / total) * 100);
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === message.id
-                ? { ...m, downloadProgress: percent, downloadedBytes: loaded }
-                : m,
-            ),
-          );
-        },
-      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
 
-      const newBlob = response.data;
+      link.href = url;
+      link.download = message.filename || "download";
+
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
       setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id !== message.id) return m;
-
-          const combinedBlob = m.partialBlob
-            ? new Blob([m.partialBlob, newBlob])
-            : newBlob;
-
-          const blobUrl = URL.createObjectURL(combinedBlob);
-
-          return {
-            ...m,
-            partialBlob: combinedBlob,
-            fileUrl: blobUrl,
-            isDownloading: false,
-            downloadProgress: 100,
-            isDownloaded: true,
-            isPaused: false,
-            downloadedBytes: message.filesize,
-          };
-        }),
+        prev.map((m) =>
+          m.id === message.id
+            ? {
+                ...m,
+                isDownloading: false,
+                isDownloaded: true,
+                downloadProgress: 100,
+              }
+            : m,
+        ),
       );
     } catch (err) {
       console.error("Download failed", err);
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === message.id ? { ...m, isDownloading: false } : m,
+        ),
+      );
     }
   };
+
+  // this is for local and aws s3 deployment
+  // const downloadFile = async (message) => {
+  //   if (message.tempId) {
+  //     return;
+  //   }
+
+  //   const existingBytes = message.downloadedBytes || 0;
+
+  //   const fileIdentifier = message.id;
+  //   if (!fileIdentifier) {
+  //     console.error("No file identifier to download");
+  //     return;
+  //   }
+
+  //   // 🚫 Videos are streamed by the browser — do nothing
+  //   // if (message.message_type === "video") {
+  //   //   // console.log("Video uses native streaming:", fileIdentifier);
+  //   //   return;
+  //   // }
+
+  //   const controller = new AbortController();
+  //   controllers.current[fileIdentifier] = controller;
+  //   // const isDownloaded = !!message.fileUrl;
+
+  //   // start progress
+  //   setMessages((prev) =>
+  //     prev.map(
+  //       (m) =>
+  //         m.id === message.id
+  //           ? { ...m, isDownloading: true, isPaused: false }
+  //           : m,
+  //       6,
+  //     ),
+  //   );
+
+  //   try {
+  //     const downloadUrl = `/messages/file/download/${fileIdentifier}`;
+  //     const response = await axiosbase.get(downloadUrl, {
+  //       responseType: "blob",
+  //       headers: existingBytes ? { Range: `bytes=${existingBytes}-` } : {},
+  //       signal: controller.signal,
+  //       onDownloadProgress: (e) => {
+  //         const total = message.filesize;
+  //         const loaded = existingBytes + e.loaded;
+
+  //         const percent = Math.floor((loaded / total) * 100);
+  //         setMessages((prev) =>
+  //           prev.map((m) =>
+  //             m.id === message.id
+  //               ? { ...m, downloadProgress: percent, downloadedBytes: loaded }
+  //               : m,
+  //           ),
+  //         );
+  //       },
+  //     });
+
+  //     const newBlob = response.data;
+
+  //     setMessages((prev) =>
+  //       prev.map((m) => {
+  //         if (m.id !== message.id) return m;
+
+  //         const combinedBlob = m.partialBlob
+  //           ? new Blob([m.partialBlob, newBlob])
+  //           : newBlob;
+
+  //         const blobUrl = URL.createObjectURL(combinedBlob);
+
+  //         return {
+  //           ...m,
+  //           partialBlob: combinedBlob,
+  //           fileUrl: blobUrl,
+  //           isDownloading: false,
+  //           downloadProgress: 100,
+  //           isDownloaded: true,
+  //           isPaused: false,
+  //           downloadedBytes: message.filesize,
+  //         };
+  //       }),
+  //     );
+  //   } catch (err) {
+  //     console.error("Download failed", err);
+  //   }
+  // };
 
   const cancelDownload = (id, message) => {
     if (!message.tempId) {
