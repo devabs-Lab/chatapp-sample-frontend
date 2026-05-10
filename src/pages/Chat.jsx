@@ -298,33 +298,32 @@ const Chat = ({
 
               {activeTab === "inbox" && (
                 <div className={classes.conversationsList}>
-                  {showProfileMenu && (
-                    <div className={classes.profiledisplay}>
-                      <div className={classes.profileWrapper}>
-                        {user.avatar_url ? (
-                          <img
-                            // src={`http://localhost:5500${user.avatar_url}`} this is for local host setup
-                            src={user.avatar_url}
-                            alt=""
-                            className={classes.avatar}
-                            onClick={handleprofileform}
-                          />
-                        ) : (
-                          <IoMdPerson
-                            className={classes.defaultAvatarIcon}
-                            onClick={handleprofileform}
-                          />
-                        )}
-                      </div>
-                      <div className={classes.usernamefont}>
-                        {" "}
-                        {user.username}{" "}
-                      </div>
-                    </div>
-                  )}
-
                   <div className={classes.profilemenu}>
                     <h3 className={classes.spanforinbox}>Inbox</h3>
+                    {showProfileMenu && (
+                      <div className={classes.profiledisplay}>
+                        <div className={classes.profileWrapper}>
+                          {user.avatar_url ? (
+                            <img
+                              // src={`http://localhost:5500${user.avatar_url}`} this is for local host setup
+                              src={user.avatar_url}
+                              alt=""
+                              className={classes.avatar}
+                              onClick={handleprofileform}
+                            />
+                          ) : (
+                            <IoMdPerson
+                              className={classes.defaultAvatarIcon}
+                              onClick={handleprofileform}
+                            />
+                          )}
+                        </div>
+                        <div className={classes.usernamefont}>
+                          {" "}
+                          {user.username}{" "}
+                        </div>
+                      </div>
+                    )}
                     <span
                       className={classes.profileicon}
                       onClick={handleprofile}
@@ -479,7 +478,7 @@ const Chat = ({
                       />
                     </label>
 
-                    <h3>{user.username}</h3>
+                    <h3 className={classes.profileUsername}>{user.username}</h3>
                   </div>
 
                   {/* Form Section */}
@@ -496,10 +495,7 @@ const Chat = ({
                           Edit
                         </div>
                       </div>
-                      {/* {console.log(
-                    "Rendering profile details with user data:",
-                    user,
-                  )} */}
+
                       <div className={classes.profileInfoContent}>
                         {user.bio ? (
                           <div className={classes.internalprofile}>
@@ -759,34 +755,34 @@ const Chat = ({
               {activeTab === "inbox" && (
                 <div className={classes.conversationsList}>
                   {/* PROFILE */}
-                  {showProfileMenu && (
-                    <div className={classes.profiledisplay}>
-                      <div className={classes.profileWrapper}>
-                        {user.avatar_url ? (
-                          <img
-                            src={user.avatar_url}
-                            alt=""
-                            className={classes.avatar}
-                            onClick={() => setMobileView("profile")}
-                          />
-                        ) : (
-                          <IoMdPerson
-                            className={classes.defaultAvatarIcon}
-                            onClick={() => setMobileView("profile")}
-                          />
-                        )}
-                      </div>
-
-                      <div className={classes.usernamefont}>
-                        {user.username}
-                      </div>
-                    </div>
-                  )}
 
                   {/* HEADER */}
                   <div className={classes.profilemenu}>
                     <h3 className={classes.spanforinbox}>Inbox</h3>
-
+                    {showProfileMenu && (
+                      <div className={classes.profiledisplay}>
+                        <div className={classes.profileWrapper}>
+                          {user.avatar_url ? (
+                            <img
+                              // src={`http://localhost:5500${user.avatar_url}`} this is for local host setup
+                              src={user.avatar_url}
+                              alt=""
+                              className={classes.avatar}
+                              onClick={handleprofileform}
+                            />
+                          ) : (
+                            <IoMdPerson
+                              className={classes.defaultAvatarIcon}
+                              onClick={handleprofileform}
+                            />
+                          )}
+                        </div>
+                        <div className={classes.usernamefont}>
+                          {" "}
+                          {user.username}{" "}
+                        </div>
+                      </div>
+                    )}
                     <span
                       className={classes.profileicon}
                       onClick={handleprofile}

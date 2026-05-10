@@ -22,6 +22,7 @@ import {
   FiMoreVertical,
   FiArrowLeft,
 } from "react-icons/fi";
+import { RiEmotionHappyLine } from "react-icons/ri";
 import { IoMdSend, IoMdPerson, IoMdClose } from "react-icons/io";
 import { Plyr } from "plyr-react";
 import "plyr-react/plyr.css";
@@ -2062,7 +2063,7 @@ const PrivateChat = ({
         <form className={classes.messageInput} onSubmit={handleSendMessage}>
           {/* Left side: Emoji button */}
           <button type="button" className={classes.iconButton}>
-            <img src="../../public/happiness.png" alt="" />
+            <RiEmotionHappyLine size={26} />
           </button>
           <textarea
             type="text"
@@ -2074,7 +2075,7 @@ const PrivateChat = ({
             className={classes.messageInputField}
           />
 
-          <label className={classes.iconButton}>
+          <label className={classes.iconButtonforinput}>
             <input
               type="file"
               hidden
@@ -2092,7 +2093,10 @@ const PrivateChat = ({
             className={classes.sendButton}
             disabled={!newMessage.trim()}
           >
-            {/* <img src="../../public/paper-plane.png" alt="" /> */}
+            <IoMdSend
+              size={26}
+              color={newMessage.trim() ? "#0b93f6" : "#999"}
+            />
           </button>
         </form>
       </div>

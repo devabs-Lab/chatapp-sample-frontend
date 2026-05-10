@@ -463,6 +463,15 @@
   background: none;
   border: none;
   cursor: pointer;
+  /* font-size: 22px; */
+  color: #666;
+  margin-bottom: 3px;
+}
+
+.iconButtonforinput {
+  background: none;
+  border: none;
+  cursor: pointer;
   font-size: 22px;
   display: flex;
   align-items: center;
@@ -471,41 +480,29 @@
   /* color: #666; */
 }
 
-.iconButton img {
-  width: 20px;
-  height: 20px;
-
-  margin-left: 7px;
-  margin-bottom: 4px;
-}
-
 /* .iconButton:hover { */
 
 .sendButton {
   border: none;
-
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: none;
+  background: none;
   border-radius: 20px;
   margin-bottom: 1px;
-  background-image: url("../../public/paper-plane.png");
-  background-size: 70%; /* make sure it fills */
-  background-position: left; /* center the icon */
-  background-repeat: no-repeat;
+  /* background-image: url("../../public/paper-plane.png"); */
+
+  /* background-size: 70%; make sure it fills */
+  /* background-position: left; center the icon */
+  /* background-repeat: no-repeat; */
   width: 35px;
   height: 35px;
 }
 
 .sendButton:disabled {
   cursor: auto;
-  background-image: url("../../public/paper-planes.png");
-  background-size: 70%; /* make sure it fills */
-  background-position: left; /* center the icon */
-  background-repeat: no-repeat;
   width: 35px;
   height: 35px;
 }
@@ -966,7 +963,9 @@
 .profilemenu {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  height: 38px;
+  gap: 5px;
+  justify-content: flex-start;
   padding: 50px 0px 10px;
   margin-bottom: 16px;
 }
@@ -974,6 +973,7 @@
 .profilemenu h3 {
   padding: 0px !important;
   margin: 0px !important;
+  margin-right: auto !important;
   color: #4a335d;
 }
 
@@ -989,9 +989,7 @@
 }
 
 .profiledisplay {
-  position: absolute;
-  left: 150px;
-  bottom: 67%;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -1059,7 +1057,7 @@
 
 .profileAvatarWrapper {
   width: 120x;
-  height: 120px;
+  max-height: 120px;
   border-radius: 50%;
   overflow: hidden;
   margin: 0;
@@ -1083,8 +1081,16 @@
 }
 
 .profileDefaultIcon {
-  font-size: 40px;
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  font-size: 80px;
   color: #aaa;
+  background-color: white;
+}
+
+.profileUsername {
+  margin-left: 115px;
 }
 
 .editIconWrapper {
@@ -1167,15 +1173,12 @@
 .profileDetails {
   padding: 5px;
   padding-top: 50px;
-  /* border: 2px solid #ecdce9; */
-  /* border-radius: 5px; */
   background-color: #f6f5f7;
   height: 65vh;
 }
 
 .profileInfo {
   display: flex;
-
   font-size: 14px;
   color: #4a335d;
   margin-bottom: 4px;
@@ -1233,7 +1236,7 @@
 }
 
 .bioforprofile {
-  width: 500px;
+  max-width: 500px;
 }
 
 .profileInfoContent {
@@ -1818,20 +1821,6 @@
     height: 100vh;
   }
 
-  .profiledisplay {
-    position: absolute;
-    left: 370px;
-    bottom: 67%;
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    background-color: #f1f1f1;
-    width: 120px;
-    height: 45px;
-    border-radius: 10px;
-    /* margin-right: 90px; */
-  }
-
   .messageInput {
     display: flex;
     background: #f1f1f1;
@@ -1840,7 +1829,6 @@
     margin: 0px;
     padding: 6px 10px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-
     gap: 8px;
   }
 
@@ -1940,4 +1928,9 @@
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 6px;
   }
+  /* .profiledisplay {
+    position: absolute;
+    left: 370px;
+    bottom: 67%;
+  } */
 }

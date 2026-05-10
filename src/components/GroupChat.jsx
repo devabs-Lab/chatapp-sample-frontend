@@ -50,7 +50,7 @@ const GroupChat = ({ group, onLeaveGroup }) => {
     } catch (error) {
       console.error(
         "Error fetching from group messages(groupchat.jsx):",
-        error
+        error,
       );
       showErrorAlert("Error", "Failed to load messages(groupchat.jsx)");
       setLoading(false);
@@ -90,7 +90,7 @@ const GroupChat = ({ group, onLeaveGroup }) => {
       console.error("Error sending message(groupchat.jsxhandlesend):", error);
       showErrorAlert(
         "Error",
-        "Failed to send message(groupchat.jsxhandlesend)"
+        "Failed to send message(groupchat.jsxhandlesend)",
       );
     }
   };
@@ -104,7 +104,7 @@ const GroupChat = ({ group, onLeaveGroup }) => {
       console.error("Error leaving group(groupchat.jsxhandleleave):", error);
       showErrorAlert(
         "Error",
-        error.response?.data?.error || "Failed to leave group"
+        error.response?.data?.error || "Failed to leave group",
       );
     }
   };
@@ -192,7 +192,7 @@ const GroupChat = ({ group, onLeaveGroup }) => {
           className={classes.sendButton}
           disabled={!newMessage.trim() || isTyping}
         >
-          <IoMdSend />
+          <IoMdSend size={26} color={newMessage.trim() ? "#0b93f6" : "#999"} />
         </button>
       </form>
     </div>

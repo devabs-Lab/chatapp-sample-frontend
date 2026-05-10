@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
+
 export const SocketContext = createContext(null);
 export const useSocket = () => useContext(SocketContext);
 // import axiosbase from "./axiosconfig";
@@ -13,7 +14,7 @@ const Socketprovider = ({ children }) => {
   useEffect(() => {
     if (!user?.userid) return;
 
-    const newSocket = io("http://localhost:5500", {
+    const newSocket = io(import.meta.env.VITE_API_URL, {
       query: { userId: user.userid }, // optional: join user-specific room
     });
     newSocket.on("connect", () => {
