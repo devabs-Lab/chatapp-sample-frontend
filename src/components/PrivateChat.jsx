@@ -41,6 +41,41 @@ import {
 import MessageRenderer from "./MessageRenderer";
 import { set } from "date-fns";
 
+const getAuthenticatedFileUrl = (message) => {
+  if (!message?.id || String(message.id).startsWith("temp-")) {
+    return message?.fileUrl || message?.fileurl || "";
+  }
+
+  const token = sessionStorage.getItem("token");
+  const url = `${import.meta.env.VITE_API_URL}/api/messages/file/download/${message.id}`;
+
+  return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+};
+
+const getImageMetadata = (file) =>
+  new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      const width = img.naturalWidth || img.width || 0;
+      const height = img.naturalHeight || img.height || 0;
+      URL.revokeObjectURL(url);
+      resolve({
+        width,
+        height,
+        aspectRatio: width && height ? width / height : 4 / 3,
+      });
+    };
+
+    img.onerror = (error) => {
+      URL.revokeObjectURL(url);
+      reject(error);
+    };
+
+    img.src = url;
+  });
+
 const PrivateChat = ({
   conversation,
   onClose,
@@ -125,17 +160,15 @@ const PrivateChat = ({
   useEffect(() => {
     if (!socket || !user?.userid || !conversation?.other_user_id) return;
 
-    setLoading(true);
-
     if (!hydratedChatsRef.current[conversation.other_user_id]) {
       // This is the first time opening this chat - mark as initial load
       // console.log(savedScroll);
+      setLoading(true);
       scrollRestoreRef.current = null;
       isInitialLoadRef.current = true;
       // syncreadmessages();
       fetchMessages();
       // pendingsyncdexie();
-      hydratedChatsRef.current[conversation.other_user_id] = true;
       // if (!scrollRestoreRef.current) {
       //   onSaveScroll(conversation.other_user_id, scrollTop);
       // }
@@ -169,15 +202,17 @@ const PrivateChat = ({
     replaceCache(conversation.other_user_id, messages);
   }, [messages, conversation?.other_user_id]);
 
+  // ✅ fix — add isDownloading guard
+
   useEffect(() => {
     const mediaMessages = messages.filter(
       (m) =>
         m.message_type !== "text" &&
         m.message_type !== "audio" &&
         !m.fileUrl &&
+        !m.isDownloading && // skip if already in progress
         m.aspect_ratio < 2,
     );
-    // console.log(mediaMessages);
     mediaMessages.forEach((msg) => downloadFile(msg));
   }, [messages]);
 
@@ -374,21 +409,17 @@ const PrivateChat = ({
 
     if (pendingAutoScrollRef.current) {
       scrollRestoreRef.current = null;
-      container.scrollTop += container.scrollHeight;
-      // console.log("from pendingautoscrollref", savedScroll);
-      savedScroll = container.scrollTop;
+      container.scrollTop = container.scrollHeight;
+      atBottomRef.current = true;
+      setIsAtBottom(true);
+      onSaveScroll(conversation.other_user_id, container.scrollTop);
 
-      setTimeout(() => {
-        const container = chatContainerRef.current;
-        container.scrollTop = container.scrollHeight;
+      setUnreadCount((prev) => ({
+        ...prev,
+        [conversation.other_user_id]: 0,
+      }));
 
-        setUnreadCount((prev) => ({
-          ...prev,
-          [conversation.other_user_id]: 0,
-        }));
-
-        pendingAutoScrollRef.current = false;
-      }, 300);
+      pendingAutoScrollRef.current = false;
 
       return;
     }
@@ -740,7 +771,15 @@ const PrivateChat = ({
 
   const fetchMessages = async (initial = true, prepend = false) => {
     const token = sessionStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      hydratedChatsRef.current[conversation.other_user_id] = true;
+      setLoading(false);
+      return;
+    }
+
+    if (initial) {
+      setLoading(true);
+    }
 
     // if (!token || !cryptoKey) return;
 
@@ -813,6 +852,7 @@ const PrivateChat = ({
         setMessages((prev) => mergeUniqueById([...response.data, ...prev]));
         // console.log(response.data);
         pendingAutoScrollRef.current = true;
+        hydratedChatsRef.current[conversation.other_user_id] = true;
       } else if (prepend) {
         if (response.data.length === 0) return;
         const container = chatContainerRef.current;
@@ -848,6 +888,9 @@ const PrivateChat = ({
       setLoading(false);
     } catch (error) {
       console.error("Error fetching messages:", error);
+      if (initial) {
+        hydratedChatsRef.current[conversation.other_user_id] = true;
+      }
       setLoading(false);
     }
   };
@@ -1075,143 +1118,91 @@ const PrivateChat = ({
       return newCount;
     });
   };
-  //  this one for deployment using direct cloudinary
 
+  // this is for local and aws s3 deployment
   const downloadFile = async (message) => {
-    if (!message?.fileurl) {
-      console.error("No file URL found");
+    if (message.tempId) {
       return;
     }
 
+    const existingBytes = message.downloadedBytes || 0;
+
+    const fileIdentifier = message.id;
+    if (!fileIdentifier) {
+      console.error("No file identifier to download");
+      return;
+    }
+
+    // 🚫 Videos are streamed by the browser — do nothing
+    // if (message.message_type === "video") {
+    //   // console.log("Video uses native streaming:", fileIdentifier);
+    //   return;
+    // }
+
+    const controller = new AbortController();
+    controllers.current[fileIdentifier] = controller;
+    // const isDownloaded = !!message.fileUrl;
+
+    // start progress
     setMessages((prev) =>
-      prev.map((m) =>
-        m.id === message.id ? { ...m, isDownloading: true } : m,
+      prev.map(
+        (m) =>
+          m.id === message.id
+            ? { ...m, isDownloading: true, isPaused: false }
+            : m,
+        6,
       ),
     );
 
     try {
-      const response = await fetch(message.fileurl);
-      const blob = await response.blob();
+      const downloadUrl = `/messages/file/download/${fileIdentifier}`;
+      const response = await axiosbase.get(downloadUrl, {
+        responseType: "blob",
+        headers: existingBytes ? { Range: `bytes=${existingBytes}-` } : {},
+        signal: controller.signal,
+        onDownloadProgress: (e) => {
+          const total = message.filesize;
+          const loaded = existingBytes + e.loaded;
 
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+          const percent = Math.floor((loaded / total) * 100);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === message.id
+                ? { ...m, downloadProgress: percent, downloadedBytes: loaded }
+                : m,
+            ),
+          );
+        },
+      });
 
-      link.href = url;
-      link.download = message.filename || "download";
-
-      document.body.appendChild(link);
-      link.click();
-
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const newBlob = response.data;
 
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === message.id
-            ? {
-                ...m,
-                isDownloading: false,
-                isDownloaded: true,
-                downloadProgress: 100,
-              }
-            : m,
-        ),
+        prev.map((m) => {
+          if (m.id !== message.id) return m;
+
+          const combinedBlob = m.partialBlob
+            ? new Blob([m.partialBlob, newBlob])
+            : newBlob;
+
+          const blobUrl = URL.createObjectURL(combinedBlob);
+
+          return {
+            ...m,
+            partialBlob: combinedBlob,
+            fileUrl: blobUrl,
+            isDownloading: false,
+            downloadProgress: 100,
+            isDownloaded: true,
+            isPaused: false,
+            downloadedBytes: message.filesize,
+          };
+        }),
       );
     } catch (err) {
       console.error("Download failed", err);
-
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === message.id ? { ...m, isDownloading: false } : m,
-        ),
-      );
     }
   };
-
-  // this is for local and aws s3 deployment
-  // const downloadFile = async (message) => {
-  //   if (message.tempId) {
-  //     return;
-  //   }
-
-  //   const existingBytes = message.downloadedBytes || 0;
-
-  //   const fileIdentifier = message.id;
-  //   if (!fileIdentifier) {
-  //     console.error("No file identifier to download");
-  //     return;
-  //   }
-
-  //   // 🚫 Videos are streamed by the browser — do nothing
-  //   // if (message.message_type === "video") {
-  //   //   // console.log("Video uses native streaming:", fileIdentifier);
-  //   //   return;
-  //   // }
-
-  //   const controller = new AbortController();
-  //   controllers.current[fileIdentifier] = controller;
-  //   // const isDownloaded = !!message.fileUrl;
-
-  //   // start progress
-  //   setMessages((prev) =>
-  //     prev.map(
-  //       (m) =>
-  //         m.id === message.id
-  //           ? { ...m, isDownloading: true, isPaused: false }
-  //           : m,
-  //       6,
-  //     ),
-  //   );
-
-  //   try {
-  //     const downloadUrl = `/messages/file/download/${fileIdentifier}`;
-  //     const response = await axiosbase.get(downloadUrl, {
-  //       responseType: "blob",
-  //       headers: existingBytes ? { Range: `bytes=${existingBytes}-` } : {},
-  //       signal: controller.signal,
-  //       onDownloadProgress: (e) => {
-  //         const total = message.filesize;
-  //         const loaded = existingBytes + e.loaded;
-
-  //         const percent = Math.floor((loaded / total) * 100);
-  //         setMessages((prev) =>
-  //           prev.map((m) =>
-  //             m.id === message.id
-  //               ? { ...m, downloadProgress: percent, downloadedBytes: loaded }
-  //               : m,
-  //           ),
-  //         );
-  //       },
-  //     });
-
-  //     const newBlob = response.data;
-
-  //     setMessages((prev) =>
-  //       prev.map((m) => {
-  //         if (m.id !== message.id) return m;
-
-  //         const combinedBlob = m.partialBlob
-  //           ? new Blob([m.partialBlob, newBlob])
-  //           : newBlob;
-
-  //         const blobUrl = URL.createObjectURL(combinedBlob);
-
-  //         return {
-  //           ...m,
-  //           partialBlob: combinedBlob,
-  //           fileUrl: blobUrl,
-  //           isDownloading: false,
-  //           downloadProgress: 100,
-  //           isDownloaded: true,
-  //           isPaused: false,
-  //           downloadedBytes: message.filesize,
-  //         };
-  //       }),
-  //     );
-  //   } catch (err) {
-  //     console.error("Download failed", err);
-  //   }
-  // };
 
   const cancelDownload = (id, message) => {
     if (!message.tempId) {
@@ -1268,6 +1259,7 @@ const PrivateChat = ({
       try {
         if (messageType === "image") {
           // For sender, we can show full image immediately
+          const metadata = await getImageMetadata(file);
           preview = await createImageThumbnailpreview(file);
           fileurl = await createImageThumbnail(file);
           // fileUrl = URL.createObjectURL(file);
@@ -1285,9 +1277,9 @@ const PrivateChat = ({
             delivered_at: new Date().toISOString(),
             status: "pending",
             message_type: messageType,
-            width: 0,
-            height: 0,
-            aspect_ratio: 0,
+            width: metadata.width,
+            height: metadata.height,
+            aspect_ratio: metadata.aspectRatio,
             duration: 0,
             file,
             preview,
@@ -1494,7 +1486,7 @@ const PrivateChat = ({
     );
   };
   const handleOpen = (message) => {
-    window.open(message.fileurl, "_blank");
+    window.open(message.fileUrl || getAuthenticatedFileUrl(message), "_blank");
   };
 
   const formatFileSize = (bytes) => {
@@ -1510,14 +1502,10 @@ const PrivateChat = ({
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   };
 
-  if (loading) {
-    return (
-      <div className={classes.chatLoading}>
-        <div className={classes.loadingSpinner}></div>
-        <p>Loading messages...</p>
-      </div>
-    );
-  }
+  const showMessagesLoading =
+    loading ||
+    (!hydratedChatsRef.current[conversation.other_user_id] &&
+      messages?.length === 0);
 
   return (
     <>
@@ -2071,9 +2059,18 @@ const PrivateChat = ({
           className={classes.messagesArea}
         >
           <div
-            className={`${classes.messagesInner} ${messages?.length === 0 ? classes.nomessage : ""} `}
+            className={`${classes.messagesInner} ${
+              showMessagesLoading || messages?.length === 0
+                ? classes.nomessage
+                : ""
+            }`}
           >
-            {messages?.length === 0 ? (
+            {showMessagesLoading ? (
+              <div className={classes.chatLoading}>
+                <div className={classes.loadingSpinner}></div>
+                <p>Loading messages...</p>
+              </div>
+            ) : messages?.length === 0 ? (
               <div className={classes.emptyMessages}>
                 <p>No messages yet. Start the conversation!</p>
               </div>
@@ -2082,7 +2079,7 @@ const PrivateChat = ({
                 <MessageRenderer
                   key={message.id || message.tempId}
                   message={message}
-                  onDownloadClick={() => downloadFile(message)}
+                  onDownloadClick={() => downloadFile(message)} // ✅ passes a function reference
                   user={user}
                   chatContainerRef={chatContainerRef}
                   handleMediaLoad={handleMediaLoad}

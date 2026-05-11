@@ -6,6 +6,34 @@ import "plyr-react/plyr.css";
 import { format } from "date-fns";
 import "react-circular-progressbar/dist/styles.css";
 
+const getAuthenticatedFileUrl = (message) => {
+  if (!message?.id || String(message.id).startsWith("temp-")) {
+    return message?.fileUrl || message?.fileurl || "";
+  }
+
+  const token = sessionStorage.getItem("token");
+  const url = `${import.meta.env.VITE_API_URL}/api/messages/file/download/${message.id}`;
+
+  return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+};
+
+const getMediaFrameStyle = (message, fallbackRatio = 4 / 3) => {
+  const width = Number(message?.width);
+  const height = Number(message?.height);
+  const savedRatio = Number(message?.aspect_ratio);
+  const aspectRatio =
+    savedRatio > 0
+      ? savedRatio
+      : width > 0 && height > 0
+        ? width / height
+        : fallbackRatio;
+
+  return {
+    aspectRatio: `${aspectRatio}`,
+    width: width > 0 ? `${Math.min(width, 350)}px` : "260px",
+  };
+};
+
 async function compressToMaxSize(canvas, maxKB = 50, file) {
   let quality = 1;
   let dataUrl;
@@ -402,13 +430,14 @@ export const VideoMessage = React.memo(
         sources: [
           {
             // src: `http://localhost:5500/api/messages/file/download/${message.id}?token=${sessionStorage.getItem("token")}`, this is for local streaming
-            src: message.fileurl || message.fileUrl,
+            src: getAuthenticatedFileUrl(message),
+            // src: message.fileurl || message.fileUrl,
             type: message.mime_type || "video/mp4",
           },
         ],
         // poster: message.thumburl,
       }),
-      [message.id, message.mime_type],
+      [message.id, message.mime_type, message.fileUrl, message.fileurl],
     );
 
     return (
@@ -437,8 +466,7 @@ export const VideoMessage = React.memo(
                     handleDoubleClick(e);
                   }}
                   style={{
-                    aspectRatio: `${message.aspect_ratio}`,
-                    width: message.width,
+                    ...getMediaFrameStyle(message, 16 / 9),
                   }}
                   className={classes.video_container}
                 >
@@ -453,7 +481,6 @@ export const VideoMessage = React.memo(
 
                 <div
                   style={{
-                    fontSize: 18,
                     color: "#666",
                     cursor: "pointer",
                     position: "absolute",
@@ -538,8 +565,7 @@ export const VideoMessage = React.memo(
                   handleDoubleClick(e);
                 }}
                 style={{
-                  aspectRatio: `${message.aspect_ratio}`,
-                  width: message.width,
+                  ...getMediaFrameStyle(message, 16 / 9),
                 }}
                 className={classes.video_container}
               >
@@ -554,7 +580,6 @@ export const VideoMessage = React.memo(
 
               <div
                 style={{
-                  fontSize: 18,
                   color: "#666",
                   cursor: "pointer",
                   position: "absolute",
@@ -624,7 +649,8 @@ export const VideoMessage = React.memo(
               // src={`http://localhost:5500/api/messages/file/download/${
               //   message.id
               // }?token=${sessionStorage.getItem("token")}`} this is for local streaming
-              src={message.fileurl || message.fileUrl}
+              // src="`${import.meta.env.VITE_API_URL}/api/messages/file/download/${message.id}` " // this is for aws
+              src={getAuthenticatedFileUrl(message)}
               className={classes.senderpreview_video}
               // onClick={handleClick}
             />
@@ -765,12 +791,12 @@ export const AudioMessage = React.memo(
         sources: [
           {
             // src: `http://localhost:5500/api/messages/file/download/${message.id}?token=${sessionStorage.getItem("token")}`, this is for local streaming
-            src: message.fileurl || message.fileUrl,
+            src: getAuthenticatedFileUrl(message),
             type: message.mime_type || "audio/mpeg",
           },
         ],
       };
-    }, [message.fileUrl]);
+    }, [message.id, message.fileUrl, message.fileurl]);
 
     useEffect(() => {
       if (isDownloaded && audioRef.current?.plyr) {
@@ -1082,7 +1108,7 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
   // here for cloud streaming
 
   const handleOpen = () => {
-    window.open(message.fileurl, "_blank");
+    window.open(message.fileUrl || getAuthenticatedFileUrl(message), "_blank");
   };
 
   const SpinnerWrapper = ({ progress, onCancel }) => {
@@ -1090,7 +1116,20 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
     const arcLength = Math.max((circumference * progress) / 100, 2); // min arc at 0
 
     return (
-      <div className={classes.spinner_container} style={{ marginBottom: 5 }}>
+      <div
+        className={classes.spinner_container}
+        style={{
+          marginBottom: 5,
+          width: 50,
+          height: 50,
+          minWidth: 50,
+          minHeight: 50,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
         {/* Spinner Circle */}
         {progress < 100 && (
           <svg
@@ -1172,7 +1211,7 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
       {(message.thumburl || message.preview) && isSender ? (
         <div style={{ background: "#f0f2f5", borderRadius: "12px" }}>
           <div className={classes.insidefile_container}>
-            <div style={{ position: "relative", height: "50px" }}>
+            <div className={classes.file_icon_container}>
               {!isDownloaded && !isDownloading && !isPaused && (
                 <div
                   onClick={() => onDownloadClick(message)}
@@ -1191,6 +1230,12 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
                 </div>
               )}
 
+              {console.log(
+                "rendering file message",
+                isDownloading,
+                isDownloaded,
+                isPaused,
+              )}
               {isDownloading || isPaused ? (
                 <div className={classes.sendload_container}>
                   <SpinnerWrapper
@@ -1204,14 +1249,14 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
                         e.preventDefault();
                         onCancel();
                       }}
-                      className={classes.cancel_button}
+                      className={classes.cancel_buttonforfile}
                     >
                       ×
                     </div>
                   ) : (
                     <div
                       onClick={() => onDownloadClick(message)}
-                      className={classes.cancel_button}
+                      className={classes.cancel_buttonforfile}
                       style={{
                         fontSize: "25px",
                         marginTop: 12,
@@ -1222,7 +1267,7 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
                     </div>
                   )}
 
-                  <div className={classes.sendload_percent}>
+                  <div className={classes.sendload_percentforfile}>
                     {message.downloadProgress}%
                   </div>
                 </div>
@@ -1235,7 +1280,7 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
               )}
             </div>
 
-            <div style={{ flex: 1 }}>
+            <div className={classes.file_info_container}>
               <div className={classes.file_name}>{message.filename}</div>
 
               <div className={classes.file_size}>
@@ -1323,7 +1368,10 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
               ) : null}
             </div>
 
-            <div style={{ flex: 1, width: "100%", marginTop: 5 }}>
+            <div
+              style={{ flex: 1, width: "80%", marginTop: 5 }}
+              className={classes.file_info_container}
+            >
               <div className={classes.file_name}>{message.filename}</div>
 
               <div className={classes.file_size}>
@@ -1331,21 +1379,20 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
               </div>
             </div>
           </div>
+
           {message.sender_id === user.userid && (
-            <span>
+            <span className={classes.messageStatus}>
               {message.status === "pending" ? (
-                <div style={{ marginLeft: "90%" }}> {pendingSpinner(85)}</div>
+                pendingSpinner(85)
               ) : message.is_read ? (
                 <div
                   className={classes.messageStatus}
-                  style={{ marginLeft: "90%" }}
                 >
                   ✔✔
                 </div>
               ) : (
                 <div
                   className={classes.messageStatus}
-                  style={{ marginLeft: "90%" }}
                 >
                   ✔
                 </div>
@@ -1368,6 +1415,12 @@ export const ImageMessage = React.memo(({ message, user, onLoad }) => {
 
   const isSender = message.sender_id !== user.userid;
   const [previewUrl, setPreviewUrl] = useState(null);
+  const imageSrc =
+    message.fileUrl ||
+    message.preview ||
+    (typeof message.fileurl === "string" && message.fileurl.startsWith("data:")
+      ? message.fileurl
+      : "");
 
   const SpinnerWrapper = ({ progress, onCancel }) => {
     const circumference = 2 * Math.PI * 20; // circle perimeter
@@ -1465,19 +1518,26 @@ export const ImageMessage = React.memo(({ message, user, onLoad }) => {
 
         {message.preview && isSender ? (
           <div className={classes.receiver_container}>
-            <div>
-              <img
-                src={message.fileUrl}
-                alt={message.content}
-                className={classes.receiver_image}
-                onClick={() => setPreviewUrl(message.fileUrl)}
-                onLoad={() => {
-                  return onLoad(
-                    message.id || message.tempId,
-                    message.sender_id === user.userid,
-                  );
-                }}
-              />
+            <div
+              className={classes.mediaFrame}
+              style={getMediaFrameStyle(message)}
+            >
+              {imageSrc ? (
+                <img
+                  src={imageSrc}
+                  alt={message.content}
+                  className={classes.mediaImage}
+                  onClick={() => setPreviewUrl(imageSrc)}
+                  onLoad={() => {
+                    return onLoad(
+                      message.id || message.tempId,
+                      message.sender_id === user.userid,
+                    );
+                  }}
+                />
+              ) : (
+                <div className={classes.mediaPlaceholder}></div>
+              )}
 
               {/* {message.downloadProgress > -1 &&
               message.downloadProgress < 100 ? (
@@ -1510,20 +1570,27 @@ export const ImageMessage = React.memo(({ message, user, onLoad }) => {
 
           <div className={classes.sender_container}>
             <div className={classes.sender_box}>
-              {(message.fileUrl || message.preview) && (
+              <div
+                className={classes.mediaFrame}
+                style={getMediaFrameStyle(message)}
+              >
+                {imageSrc ? (
                 <img
-                  src={message.fileUrl || message.preview}
+                  src={imageSrc}
                   alt={message.content}
-                  className={classes.sender_image}
+                  className={classes.mediaImage}
                   onLoad={() =>
                     onLoad(
                       message.id || message.tempId,
                       message.sender_id === user.userid,
                     )
                   }
-                  onClick={() => setPreviewUrl(message.fileUrl)}
+                  onClick={() => setPreviewUrl(imageSrc)}
                 />
-              )}
+                ) : (
+                  <div className={classes.mediaPlaceholder}></div>
+                )}
+              </div>
               <div className={classes.sendimage_size}>
                 {formatFileSize(message.fileSize)}
               </div>

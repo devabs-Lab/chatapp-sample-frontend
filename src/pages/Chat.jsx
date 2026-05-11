@@ -69,6 +69,9 @@ const Chat = ({
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [conversationsLoading, setConversationsLoading] = useState(true);
   const [showedit, setshowedit] = useState(false);
   const [mobileView, setMobileView] = useState("list");
 
@@ -89,9 +92,17 @@ const Chat = ({
   }, [mobileView, isMobile]);
 
   useEffect(() => {
-    fetchUserGroups();
-    fetchConversations();
-    fetchAllUsers();
+    const loadInitialChatData = async () => {
+      setLoading(true);
+      await Promise.allSettled([
+        fetchUserGroups(),
+        fetchConversations(),
+        fetchAllUsers(),
+      ]);
+      setLoading(false);
+    };
+
+    loadInitialChatData();
   }, []);
 
   const replaceCache = (other_user_id, messagesArray) => {
@@ -102,6 +113,7 @@ const Chat = ({
   };
 
   const fetchUserGroups = async () => {
+    setGroupsLoading(true);
     try {
       const response = await axiosbase.get("/groups/my-groups");
       setGroups(response.data);
@@ -111,19 +123,25 @@ const Chat = ({
         "Error",
         "Failed to load your groups(chat.jsxfetchusergroups)",
       );
+    } finally {
+      setGroupsLoading(false);
     }
   };
 
   const fetchAllUsers = async () => {
+    setUsersLoading(true);
     try {
       const response = await axiosbase.get("/messages/users/all");
       setAllUsers(response.data);
     } catch (error) {
       console.error("Error fetching all users:", error);
+    } finally {
+      setUsersLoading(false);
     }
   };
 
   const fetchConversations = async () => {
+    setConversationsLoading(true);
     try {
       const response = await axiosbase.get("/messages/conversations");
       setConversations(response.data);
@@ -138,7 +156,7 @@ const Chat = ({
         "Failed to load conversations(chat.jsxfetchconversations)",
       );
     } finally {
-      setLoading(false);
+      setConversationsLoading(false);
     }
   };
 
@@ -240,7 +258,7 @@ const Chat = ({
     setshowedit(true);
   };
 
-  if (loading) {
+  if (loading || conversationsLoading) {
     return (
       <div className={classes.loadingContainer}>
         <div className={classes.loadingSpinner}></div>
@@ -263,7 +281,12 @@ const Chat = ({
               {activeTab === "groups" && (
                 <div className={classes.groupsList}>
                   <h3>My Groups</h3>
-                  {groups.length === 0 ? (
+                  {groupsLoading ? (
+                    <div className={classes.inlineLoading}>
+                      <div className={classes.loadingSpinner}></div>
+                      <p>Loading groups...</p>
+                    </div>
+                  ) : groups.length === 0 ? (
                     <div className={classes.emptyState}>
                       <IoMdPeople size={48} />
                       <p>You haven't joined any groups yet</p>
@@ -334,7 +357,12 @@ const Chat = ({
                     </span>
                   </div>
 
-                  {inboxUsers.length === 0 ? (
+                  {usersLoading ? (
+                    <div className={classes.inlineLoading}>
+                      <div className={classes.loadingSpinner}></div>
+                      <p>Loading users...</p>
+                    </div>
+                  ) : inboxUsers.length === 0 ? (
                     <div className={classes.emptyState}>
                       <IoMdChatboxes size={48} />
                       <p>No other users found</p>
@@ -681,30 +709,6 @@ const Chat = ({
 
           {/* LIST / SIDEBAR SCREEN */}
 
-          {mobileView === "chat" && (
-            <div className={classes.welcomeScreen}>
-              <div className={classes.welcomeContent}>
-                <IoMdChatboxes size={64} />
-                <h2>Welcome to UoPeople Chat!</h2>
-                <p>Select a group or conversation to start chatting</p>
-                <div className={classes.welcomeActions}>
-                  <button
-                    className={classes.primaryButton}
-                    onClick={() => setActiveTab("groups")}
-                  >
-                    Browse Groups
-                  </button>
-                  <button
-                    className={classes.secondaryButton}
-                    onClick={() => setActiveTab("create")}
-                  >
-                    Create Group
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {mobileView === "list" && (
             <div className={classes.mobileSidebar}>
               {/* GROUPS TAB */}
@@ -713,7 +717,12 @@ const Chat = ({
                 <div className={classes.groupsList}>
                   <h3>My Groups</h3>
 
-                  {groups.length === 0 ? (
+                  {groupsLoading ? (
+                    <div className={classes.inlineLoading}>
+                      <div className={classes.loadingSpinner}></div>
+                      <p>Loading groups...</p>
+                    </div>
+                  ) : groups.length === 0 ? (
                     <div className={classes.emptyState}>
                       <IoMdPeople size={48} />
                       <p>You haven't joined any groups yet</p>
@@ -792,7 +801,12 @@ const Chat = ({
                   </div>
 
                   {/* USERS */}
-                  {inboxUsers.length === 0 ? (
+                  {usersLoading ? (
+                    <div className={classes.inlineLoading}>
+                      <div className={classes.loadingSpinner}></div>
+                      <p>Loading users...</p>
+                    </div>
+                  ) : inboxUsers.length === 0 ? (
                     <div className={classes.emptyState}>
                       <IoMdChatboxes size={48} />
 
@@ -938,7 +952,6 @@ const Chat = ({
               <div className={classes.profileCard}>
                 {/* BACK BUTTON */}
                 <button
-                  className={classes.mobileBackButton}
                   onClick={() => setMobileView("list")}
                   className={classes.backbuttonforprofile}
                 >
