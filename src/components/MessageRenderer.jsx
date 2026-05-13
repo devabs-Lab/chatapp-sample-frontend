@@ -41,6 +41,7 @@ const MessageRenderer = memo(function MessageRenderer({
           user={user}
           chatContainerRef={chatContainerRef}
           onLoad={handleLoad}
+          onCancel={onCancel}
         />
       );
 

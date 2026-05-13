@@ -417,6 +417,12 @@ const Chat = ({
               {activeTab === "create" && (
                 <CreateGroup onCreateGroup={handleCreateGroup} />
               )}
+
+              {activeTab === "explore" && (
+                <div className={classes.profilemenu}>
+                  <h3 className={classes.spanforexplore}>Explore</h3>
+                </div>
+              )}
             </div>
 
             {/* Tab Navigation */}
@@ -636,6 +642,8 @@ const Chat = ({
             ) : selectedGroup ? (
               <GroupChat
                 group={selectedGroup}
+                isMobile={isMobile}
+                setMobileView={setMobileView}
                 onLeaveGroup={() => {
                   setSelectedGroup(null);
                   fetchUserGroups();
@@ -877,7 +885,182 @@ const Chat = ({
           {mobileView === "chat" && (
             <div className={classes.chatArea}>
               {/* PRIVATE CHAT */}
-              {selectedConversation ? (
+              {showProfileForm ? (
+                <div className={classes.profileContainer}>
+                  <div className={classes.profileCard}>
+                    {/* {bander section} */}
+                    <div className={classes.profileBanner}>
+                      <img
+                        src="https://www.uopeople.edu/retention/chat-bot/chatbot-header.webp"
+                        alt=""
+                        className={classes.profileBannerImage}
+                      />
+                    </div>
+
+                    {/* Avatar Section */}
+                    <div className={classes.profileAvatarSection}>
+                      <label>
+                        <div className={classes.profileAvatarWrapper}>
+                          {" "}
+                          {user.avatar_url ? (
+                            <img
+                              src={user.avatar_url}
+                              alt=""
+                              className={classes.profileAvatar}
+                            />
+                          ) : (
+                            <IoMdPerson
+                              className={classes.profileDefaultIcon}
+                            />
+                          )}
+                        </div>
+                        <div className={classes.editIconWrapper}>
+                          {" "}
+                          <img
+                            src={editimage}
+                            alt=""
+                            className={classes.editimage}
+                          />
+                        </div>
+
+                        <input
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={handleAvatarUpload}
+                        />
+                      </label>
+
+                      <h3 className={classes.profileUsername}>
+                        {user.username}
+                      </h3>
+                    </div>
+
+                    {/* Form Section */}
+                    {!showedit && (
+                      <div className={classes.profileDetails}>
+                        <div className={classes.profileInfo}>
+                          <div className={classes.profileInfoTitlefornobio}>
+                            {user.bio ? "" : "Bio"}
+                          </div>
+                          <div
+                            className={classes.profileedit}
+                            onClick={handleEdit}
+                          >
+                            Edit
+                          </div>
+                        </div>
+
+                        <div className={classes.profileInfoContent}>
+                          {user.bio ? (
+                            <div className={classes.internalprofile}>
+                              <div className={classes.profileiconinfo}>
+                                <FiInfo />
+                              </div>
+                              <div className={classes.detailside}>
+                                <div className={classes.bioforprofile}>
+                                  {user.bio}
+                                </div>
+                                <div className={classes.profileInfoTitle}>
+                                  bio
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className={classes.nobioforprofile}>
+                              No bio available.
+                            </div>
+                          )}
+
+                          {user.phone ? (
+                            <div className={classes.internalprofile}>
+                              <div className={classes.profileiconinfo}>
+                                <FiPhone />
+                              </div>
+                              <div className={classes.detailside}>
+                                <div className={classes.phoneforprofile}>
+                                  {user.phone}
+                                </div>
+                                <div className={classes.phoneTitle}>Phone</div>
+                              </div>
+                            </div>
+                          ) : (
+                            ""
+                          )}
+
+                          {user.department ? (
+                            <div className={classes.internalprofile}>
+                              <div className={classes.profileiconinfo}>
+                                <FiBriefcase />
+                              </div>
+                              <div className={classes.detailside}>
+                                <div className={classes.departmentforprofile}>
+                                  {user.department}
+                                </div>
+                                <div className={classes.departmentTitle}>
+                                  Department
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            ""
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {showedit && (
+                      <div className={classes.profileForm}>
+                        <div className={classes.inputGroup}>
+                          <label>Bio</label>
+                          <textarea
+                            placeholder="Write something about yourself..."
+                            value={bio}
+                            onChange={(e) => setBio(e.target.value)}
+                          />
+                        </div>
+
+                        <div className={classes.inputGroup}>
+                          <label>Phone Number</label>
+                          <input
+                            type="text"
+                            placeholder="+251..."
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                          />
+                        </div>
+
+                        <div className={classes.inputGroup}>
+                          <label>Department</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Accouting"
+                            value={department}
+                            onChange={(e) => setDepartment(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Buttons */}
+                        <div className={classes.profileActions}>
+                          <button
+                            className={classes.saveBtn}
+                            onClick={handleSaveProfile}
+                          >
+                            Save Changes
+                          </button>
+
+                          <button
+                            className={classes.cancelBtn}
+                            onClick={() => setShowProfileForm(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : selectedConversation ? (
                 <PrivateChat
                   key={selectedConversation.other_user_id}
                   conversation={selectedConversation}
@@ -913,6 +1096,8 @@ const Chat = ({
               ) : selectedGroup ? (
                 <GroupChat
                   group={selectedGroup}
+                  setMobileView={setMobileView}
+                  isMobile={isMobile}
                   onLeaveGroup={() => {
                     setSelectedGroup(null);
                     setMobileView("list");

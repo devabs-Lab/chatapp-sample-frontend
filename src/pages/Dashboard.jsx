@@ -24,10 +24,15 @@ function Dashboard() {
 
   const shouldHideFooter =
     isMobile && location.pathname === "/chat" && !showMobileFooter;
+  const isMobileChatPage = isMobile && location.pathname === "/chat";
 
   return (
     <>
-      <div className={classes.dashboardLayout}>
+      <div
+        className={`${classes.dashboardLayout} ${
+          isMobileChatPage ? classes.mobileChatLayout : ""
+        }`}
+      >
         <Header />
         <main className={classes.mainContent}>
           <Outlet context={{ setShowMobileFooter }} />

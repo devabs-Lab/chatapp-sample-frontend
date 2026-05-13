@@ -902,7 +902,7 @@ export const AudioMessage = React.memo(
             >
               <div className={classes.file_name}>{message.filename}</div>
 
-              <div className={classes.file_size} style={{ paddingBottom: 5 }}>
+              <div className={classes.file_size} style={{ paddingBottom: 20 }}>
                 {formatFileSize(message.filesize)}
               </div>
             </div>
@@ -1090,10 +1090,38 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
   };
 
   const isSender = message.sender_id !== user.userid;
-  const isDownloading = message.isDownloading;
-  const isDownloaded = message.isDownloaded;
-  const isPaused = message.isPaused;
-  const progress = message.uploadProgress ?? message.downloadProgress;
+  const isOwnMessage = message.sender_id === user.userid;
+  const isDownloading = message.isDownloading ?? false;
+  const isDownloaded = message.isDownloaded ?? false;
+  const isPaused = message.isPaused ?? false;
+  const uploadProgress =
+    Number.isFinite(Number(message.uploadProgress)) &&
+    message.uploadProgress >= 0
+      ? Number(message.uploadProgress)
+      : null;
+  const downloadProgress =
+    Number.isFinite(Number(message.downloadProgress)) &&
+    message.downloadProgress >= 0
+      ? Number(message.downloadProgress)
+      : null;
+  const isTempUpload = String(message.tempId || "").startsWith("temp-");
+  const isUploading =
+    isOwnMessage &&
+    isTempUpload &&
+    uploadProgress !== null &&
+    uploadProgress < 100;
+  const isFileBusy = isUploading || isDownloading || isPaused;
+  const activeFileProgress = isUploading
+    ? uploadProgress
+    : downloadProgress !== null
+      ? downloadProgress
+      : 0;
+
+  const handleCancel = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onCancel?.();
+  };
 
   // this is for local file streaming
 
@@ -1111,7 +1139,7 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
     window.open(message.fileUrl || getAuthenticatedFileUrl(message), "_blank");
   };
 
-  const SpinnerWrapper = ({ progress, onCancel }) => {
+  const renderFileSpinner = (progress) => {
     const circumference = 2 * Math.PI * 20; // circle perimeter
     const arcLength = Math.max((circumference * progress) / 100, 2); // min arc at 0
 
@@ -1132,34 +1160,34 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
       >
         {/* Spinner Circle */}
         {progress < 100 && (
-          <svg
-            width="50"
-            height="50"
-            viewBox="0 0 50 50"
-            style={{
-              animation: "spin 1.5s linear infinite",
-            }}
-          >
-            {/* Background track */}
-            <circle
-              cx="25"
-              cy="25"
-              r="20"
-              fill="rgba(44, 44, 44, 0.2)"
-              strokeWidth="4"
-            />
-            {/* Progress arc */}
-            <circle
-              cx="25"
-              cy="25"
-              r="20"
-              fill="none"
-              stroke="white"
-              strokeWidth="4"
-              strokeDasharray={`${arcLength} ${circumference}`}
-              strokeLinecap="round"
-            />
-          </svg>
+          <div className={classes.progressSpinnerRotator}>
+            <svg
+              className={classes.imageProgressSpinner}
+              width="50"
+              height="50"
+              viewBox="0 0 50 50"
+            >
+              {/* Background track */}
+              <circle
+                cx="25"
+                cy="25"
+                r="20"
+                fill="rgba(44, 44, 44, 0.2)"
+                strokeWidth="4"
+              />
+              {/* Progress arc */}
+              <circle
+                cx="25"
+                cy="25"
+                r="20"
+                fill="none"
+                stroke="white"
+                strokeWidth="4"
+                strokeDasharray={`${arcLength} ${circumference}`}
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
         )}
       </div>
     );
@@ -1230,18 +1258,9 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
                 </div>
               )}
 
-              {console.log(
-                "rendering file message",
-                isDownloading,
-                isDownloaded,
-                isPaused,
-              )}
               {isDownloading || isPaused ? (
                 <div className={classes.sendload_container}>
-                  <SpinnerWrapper
-                    progress={message.downloadProgress}
-                    // onCancel={onCancel}
-                  />
+                  {renderFileSpinner(activeFileProgress)}
                   {!isPaused ? (
                     <div
                       onClick={(e) => {
@@ -1258,9 +1277,7 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
                       onClick={() => onDownloadClick(message)}
                       className={classes.cancel_buttonforfile}
                       style={{
-                        fontSize: "25px",
-                        marginTop: 12,
-                        marginLeft: 16,
+                        fontSize: "23px",
                       }}
                     >
                       ▶
@@ -1268,7 +1285,7 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
                   )}
 
                   <div className={classes.sendload_percentforfile}>
-                    {message.downloadProgress}%
+                    {activeFileProgress}%
                   </div>
                 </div>
               ) : null}
@@ -1302,54 +1319,41 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
         <div style={{ background: "#f0f2f5", borderRadius: "12px" }}>
           <div className={classes.insidefile_container}>
             <div style={{ position: "relative", height: "50px" }}>
-              {(message.uploadProgress < 100 && message.uploadProgress >= 0) ||
-              isDownloading ||
-              isPaused ? (
+              {isFileBusy ? (
                 <div style={{ position: "relative" }}>
-                  <SpinnerWrapper
-                    progress={
-                      message.uploadProgress ?? message.downloadProgress
-                    }
-                  />
+                  {renderFileSpinner(activeFileProgress)}
 
                   {!isPaused ? (
                     <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        onCancel();
-                      }}
-                      className={classes.cancel_button}
+                      onClick={handleCancel}
+                      className={classes.cancel_buttonforfile}
                     >
                       ×
                     </div>
                   ) : (
                     <div
                       onClick={() => onDownloadClick(message)}
-                      className={classes.cancel_button}
+                      className={classes.cancel_buttonforfile}
                       style={{
-                        fontSize: "25px",
-                        marginTop: 12,
-                        marginLeft: 16,
+                        fontSize: "23px",
                       }}
                     >
                       ▶
                     </div>
                   )}
 
-                  <div className={classes.sendload_percent}>
-                    {message.uploadProgress ?? message.downloadProgress}%
+                  <div className={classes.sendload_percentforfile}>
+                    {activeFileProgress}%
                   </div>
                 </div>
-              ) : (isDownloaded && !isDownloading) ||
-                message.uploadProgress == 100 ? (
+              ) : (isDownloaded && !isDownloading) || uploadProgress === 100 ? (
                 <div onClick={handleOpen} className={classes.file_icon}>
                   {message.message_type === "video" ? "🎬" : "📄"}
                 </div>
               ) : !isDownloaded &&
                 !isDownloading &&
                 !isPaused &&
-                !message.uploadProgress ? (
+                uploadProgress === null ? (
                 <div
                   onClick={() => onDownloadClick(message)}
                   style={{ position: "relative" }}
@@ -1385,17 +1389,9 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
               {message.status === "pending" ? (
                 pendingSpinner(85)
               ) : message.is_read ? (
-                <div
-                  className={classes.messageStatus}
-                >
-                  ✔✔
-                </div>
+                <div className={classes.messageStatus}>✔✔</div>
               ) : (
-                <div
-                  className={classes.messageStatus}
-                >
-                  ✔
-                </div>
+                <div className={classes.messageStatus}>✔</div>
               )}
             </span>
           )}
@@ -1405,141 +1401,177 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
   );
 };
 
-export const ImageMessage = React.memo(({ message, user, onLoad }) => {
-  const formatFileSize = (bytes) => {
-    if (!bytes && bytes !== 0) return "";
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+export const ImageMessage = React.memo(
+  ({ message, user, onLoad, onCancel }) => {
+    const formatFileSize = (bytes) => {
+      if (!bytes && bytes !== 0) return "";
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
 
-  const isSender = message.sender_id !== user.userid;
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const imageSrc =
-    message.fileUrl ||
-    message.preview ||
-    (typeof message.fileurl === "string" && message.fileurl.startsWith("data:")
-      ? message.fileurl
-      : "");
+    const isSender = message.sender_id !== user.userid;
+    const isOwnMessage = message.sender_id === user.userid;
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const imageSrc =
+      message.fileUrl ||
+      message.preview ||
+      (typeof message.fileurl === "string" &&
+      message.fileurl.startsWith("data:")
+        ? message.fileurl
+        : "");
+    const uploadProgress =
+      Number.isFinite(Number(message.uploadProgress)) &&
+      message.uploadProgress >= 0
+        ? Number(message.uploadProgress)
+        : null;
+    const downloadProgress =
+      Number.isFinite(Number(message.downloadProgress)) &&
+      message.downloadProgress >= 0
+        ? Number(message.downloadProgress)
+        : null;
+    const isTempUpload = String(message.tempId || "").startsWith("temp-");
+    const isSendingUpload =
+      isOwnMessage &&
+      isTempUpload &&
+      uploadProgress !== null &&
+      uploadProgress < 100;
+    const isRenderingImage =
+      !isTempUpload &&
+      !isSendingUpload &&
+      downloadProgress !== null &&
+      downloadProgress < 100;
+    const activeImageProgress = isSendingUpload
+      ? uploadProgress
+      : isRenderingImage
+        ? downloadProgress
+        : null;
 
-  const SpinnerWrapper = ({ progress, onCancel }) => {
-    const circumference = 2 * Math.PI * 20; // circle perimeter
-    const arcLength = Math.max((circumference * progress) / 100, 2); // min arc at 0
+    const renderSpinner = ({ progress, showCancel = false, onCancel }) => {
+      const circumference = 2 * Math.PI * 20; // circle perimeter
+      const arcLength = Math.max((circumference * progress) / 100, 2); // min arc at 0
 
-    return (
-      <div className={classes.spinner_container}>
-        {/* Spinner Circle */}
-        {progress < 100 && (
-          <svg
-            width="50"
-            height="50"
-            viewBox="0 0 50 50"
-            style={{ animation: "spin 1.5s linear infinite" }}
-          >
-            {/* Background track */}
-            <circle
-              cx="25"
-              cy="25"
-              r="20"
-              fill="rgba(44, 44, 44, 0.2)"
-              strokeWidth="4"
-            />
-            {/* Progress arc */}
-            <circle
-              cx="25"
-              cy="25"
-              r="20"
-              fill="none"
-              stroke="white"
-              strokeWidth="4"
-              strokeDasharray={`${arcLength} ${circumference}`}
-              strokeLinecap="round"
-            />
-          </svg>
-        )}
-
-        {/* Cancel Button inside the circle */}
-        {!isSender && progress < 100 && (
-          <button
-            // onClick={onCancel}
-            className={classes.cancel_button}
-          >
-            ×
-          </button>
-        )}
-      </div>
-    );
-  };
-
-  const pendingSpinner = (progress) => {
-    const circumference = 2 * Math.PI * 10;
-    const arcLength = Math.max((circumference * progress) / 100, 2);
-
-    return (
-      <div className={classes.spinner_containerr}>
-        {progress < 100 && (
-          <svg
-            width="30"
-            height="30"
-            viewBox="0 0 50 50"
-            style={{
-              animation: "spin 1.5s linear infinite",
-              pointerEvents: "none",
-            }}
-          >
-            <circle cx="25" cy="25" r="10" fill="white" strokeWidth="4" />
-
-            <circle
-              cx="25"
-              cy="25"
-              r="10"
-              fill="none"
-              stroke="#555555"
-              strokeWidth="4"
-              strokeDasharray={`${arcLength} ${circumference}`}
-              strokeLinecap="round"
-            />
-          </svg>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <>
-      <div
-        key={message.id || message.tempId}
-        data-id={message.id}
-        className={`${classes.image_container} ${
-          message.sender_id === user.userid ? classes.imageown : ""
-        }`}
-      >
-        {/* show preview (thumbnail) blurred until downloaded */}
-
-        {message.preview && isSender ? (
-          <div className={classes.receiver_container}>
-            <div
-              className={classes.mediaFrame}
-              style={getMediaFrameStyle(message)}
-            >
-              {imageSrc ? (
-                <img
-                  src={imageSrc}
-                  alt={message.content}
-                  className={classes.mediaImage}
-                  onClick={() => setPreviewUrl(imageSrc)}
-                  onLoad={() => {
-                    return onLoad(
-                      message.id || message.tempId,
-                      message.sender_id === user.userid,
-                    );
-                  }}
+      return (
+        <div className={classes.spinner_container}>
+          {/* Spinner Circle */}
+          {progress < 100 && (
+            <div className={classes.progressSpinnerRotator}>
+              <svg
+                className={classes.imageProgressSpinner}
+                width="50"
+                height="50"
+                viewBox="0 0 50 50"
+              >
+                {/* Background track */}
+                <circle
+                  cx="25"
+                  cy="25"
+                  r="20"
+                  fill="rgba(44, 44, 44, 0.2)"
+                  strokeWidth="4"
                 />
-              ) : (
-                <div className={classes.mediaPlaceholder}></div>
-              )}
+                {/* Progress arc */}
+                <circle
+                  cx="25"
+                  cy="25"
+                  r="20"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="4"
+                  strokeDasharray={`${arcLength} ${circumference}`}
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+          )}
 
-              {/* {message.downloadProgress > -1 &&
+          {/* Cancel Button inside the circle */}
+          {showCancel && progress < 100 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onCancel?.();
+              }}
+              className={`${classes.cancel_button} ${classes.imageCancelButton}`}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      );
+    };
+
+    const pendingSpinner = (progress) => {
+      const circumference = 2 * Math.PI * 10;
+      const arcLength = Math.max((circumference * progress) / 100, 2);
+
+      return (
+        <div className={classes.spinner_containerr}>
+          {progress < 100 && (
+            <svg
+              width="30"
+              height="30"
+              viewBox="0 0 50 50"
+              style={{
+                animation: "spin 1.5s linear infinite",
+                pointerEvents: "none",
+              }}
+            >
+              <circle cx="25" cy="25" r="10" fill="white" strokeWidth="4" />
+
+              <circle
+                cx="25"
+                cy="25"
+                r="10"
+                fill="none"
+                stroke="#555555"
+                strokeWidth="4"
+                strokeDasharray={`${arcLength} ${circumference}`}
+                strokeLinecap="round"
+              />
+            </svg>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <>
+        <div
+          key={message.id || message.tempId}
+          data-id={message.id}
+          className={`${classes.image_container} ${
+            message.sender_id === user.userid ? classes.imageown : ""
+          }`}
+        >
+          {/* show preview (thumbnail) blurred until downloaded */}
+
+          {message.preview && isSender ? (
+            <div className={classes.receiver_container}>
+              <div
+                className={classes.mediaFrame}
+                style={getMediaFrameStyle(message)}
+              >
+                {imageSrc ? (
+                  <img
+                    src={imageSrc}
+                    alt={message.content}
+                    className={classes.mediaImage}
+                    onClick={() => setPreviewUrl(imageSrc)}
+                    onLoad={() => {
+                      return onLoad(
+                        message.id || message.tempId,
+                        message.sender_id === user.userid,
+                      );
+                    }}
+                  />
+                ) : (
+                  <div className={classes.mediaPlaceholder}></div>
+                )}
+
+                {/* {message.downloadProgress > -1 &&
               message.downloadProgress < 100 ? (
                 <div className={classes.sendload_container}>
                   <button
@@ -1552,92 +1584,100 @@ export const ImageMessage = React.memo(({ message, user, onLoad }) => {
                 </div>
               ) :  */}
 
-              {message.downloadProgress < 100 && (
-                <div className={classes.sendload_container}>
-                  <SpinnerWrapper
-                    progress={message.downloadProgress}
-                    onCancel={onCancel}
-                  />
-                  <div className={classes.sendload_percent}>
-                    {message.downloadProgress}%
+                {downloadProgress !== null && downloadProgress < 100 && (
+                  <div
+                    className={`${classes.sendload_container} ${classes.imageLoadOverlay}`}
+                  >
+                    {renderSpinner({ progress: downloadProgress })}
+                    <div
+                      className={`${classes.sendload_percent} ${classes.imageRenderPercent}`}
+                    >
+                      {downloadProgress}%
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          // downloaded or local (sender)
-
-          <div className={classes.sender_container}>
-            <div className={classes.sender_box}>
-              <div
-                className={classes.mediaFrame}
-                style={getMediaFrameStyle(message)}
-              >
-                {imageSrc ? (
-                <img
-                  src={imageSrc}
-                  alt={message.content}
-                  className={classes.mediaImage}
-                  onLoad={() =>
-                    onLoad(
-                      message.id || message.tempId,
-                      message.sender_id === user.userid,
-                    )
-                  }
-                  onClick={() => setPreviewUrl(imageSrc)}
-                />
-                ) : (
-                  <div className={classes.mediaPlaceholder}></div>
                 )}
               </div>
-              <div className={classes.sendimage_size}>
-                {formatFileSize(message.fileSize)}
-              </div>
-              {message.sender_id === user.userid && (
-                <span className={classes.messageStatus}>
-                  {message.status === "pending"
-                    ? pendingSpinner(85)
-                    : message.is_read
-                      ? "✔✔"
-                      : "✔"}
-                </span>
-              )}
+            </div>
+          ) : (
+            // downloaded or local (sender)
 
-              {(message.uploadProgress < 100 && message.uploadProgress >= 0) ||
-                (message.downloadProgress < 100 &&
-                  message.downloadProgress >= 0 && (
-                    <div className={classes.sendload_container}>
-                      <SpinnerWrapper
-                        progress={
-                          message.uploadProgress || message.downloadProgress
-                        }
-                      />
-                      <div className={classes.sendload_percent}>
-                        {message.uploadProgress || message.downloadProgress}%
+            <div className={classes.sender_container}>
+              <div className={classes.sender_box}>
+                <div
+                  className={classes.mediaFrame}
+                  style={getMediaFrameStyle(message)}
+                >
+                  {imageSrc ? (
+                    <img
+                      src={imageSrc}
+                      alt={message.content}
+                      className={classes.mediaImage}
+                      onLoad={() =>
+                        onLoad(
+                          message.id || message.tempId,
+                          message.sender_id === user.userid,
+                        )
+                      }
+                      onClick={() => setPreviewUrl(imageSrc)}
+                    />
+                  ) : (
+                    <div className={classes.mediaPlaceholder}></div>
+                  )}
+
+                  {activeImageProgress !== null && (
+                    <div
+                      className={`${classes.sendload_container} ${classes.imageLoadOverlay}`}
+                    >
+                      {renderSpinner({
+                        progress: activeImageProgress,
+                        showCancel: isSendingUpload,
+                        onCancel,
+                      })}
+                      <div
+                        className={`${classes.sendload_percent} ${
+                          isSendingUpload
+                            ? classes.imageUploadPercent
+                            : classes.imageRenderPercent
+                        }`}
+                      >
+                        {activeImageProgress}%
                       </div>
                     </div>
-                  ))}
+                  )}
+                </div>
+                <div className={classes.sendimage_size}>
+                  {formatFileSize(message.fileSize)}
+                </div>
+                {message.sender_id === user.userid && (
+                  <span className={classes.messageStatus}>
+                    {message.status === "pending"
+                      ? pendingSpinner(85)
+                      : message.is_read
+                        ? "✔✔"
+                        : "✔"}
+                  </span>
+                )}
+              </div>
             </div>
+          )}
+        </div>
+
+        {previewUrl && (
+          <div
+            onClick={() => setPreviewUrl(null)}
+            className={classes.fullimage_container}
+          >
+            <img
+              src={previewUrl}
+              alt="Full preview"
+              className={classes.image_fulldisplay}
+            />
           </div>
         )}
-      </div>
-
-      {previewUrl && (
-        <div
-          onClick={() => setPreviewUrl(null)}
-          className={classes.fullimage_container}
-        >
-          <img
-            src={previewUrl}
-            alt="Full preview"
-            className={classes.image_fulldisplay}
-          />
-        </div>
-      )}
-    </>
-  );
-});
+      </>
+    );
+  },
+);
 
 export const TextMessage = ({ message, user }) => {
   const formatMessageTime = (timestamp) => {
@@ -1699,7 +1739,7 @@ export const TextMessage = ({ message, user }) => {
         {message.sender_id === user.userid && (
           <span className={classes.messageStatus}>
             {message.status === "pending"
-              ? pendingSpinner(85)
+              ? pendingSpinner(86)
               : message.is_read
                 ? "✔✔"
                 : "✔"}

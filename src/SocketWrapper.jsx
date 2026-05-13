@@ -294,18 +294,42 @@ const SocketWrapper = ({ children }) => {
 
       const controller = new AbortController();
       activeUploadsRef.current[msg.tempId] = controller;
+      const safeNumber = (value, fallback = 0) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      };
+      const getSafeUploadFilename = (file, tempId) => {
+        const originalName = file?.name || "upload";
+        const lastDot = originalName.lastIndexOf(".");
+        const rawExtension = lastDot > -1 ? originalName.slice(lastDot + 1) : "";
+        const extension = rawExtension.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
+        const rawBase = lastDot > -1 ? originalName.slice(0, lastDot) : originalName;
+        const base =
+          rawBase
+            .normalize("NFKD")
+            .replace(/[^\w.-]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 80) || "file";
+
+        return `${tempId || Date.now()}-${base}${extension ? `.${extension}` : ""}`;
+      };
+      const safeDuration = Math.round(safeNumber(msg.duration));
+      const safeUploadFilename = getSafeUploadFilename(msg.file, msg.tempId);
 
       const formData = new FormData();
-      formData.append("file", msg.file);
+      formData.append("file", msg.file, safeUploadFilename);
       formData.append("tempId", msg.tempId);
       formData.append("receiver_id", msg.receiver_id);
       formData.append("message_type", msg.message_type);
       formData.append("delivered_at", msg.delivered_at);
       formData.append("sender_id", msg.sender_id);
-      formData.append("width", msg.width);
-      formData.append("height", msg.height);
-      formData.append("aspect_ratio", msg.aspect_ratio);
-      formData.append("duration", msg.duration);
+      formData.append("filename", msg.filename || msg.file?.name || "");
+      formData.append("filesize", safeNumber(msg.filesize || msg.file?.size));
+      formData.append("mime_type", msg.file?.type || msg.mime_type || "");
+      formData.append("width", safeNumber(msg.width));
+      formData.append("height", safeNumber(msg.height));
+      formData.append("aspect_ratio", safeNumber(msg.aspect_ratio));
+      formData.append("duration", safeDuration);
 
       // add more metadata if needed
 
@@ -334,7 +358,6 @@ const SocketWrapper = ({ children }) => {
         },
       });
 
-      delete activeUploadsRef.current[msg.tempId];
       const serverMsg = res.data;
       // console.log(serverMsg);
 
@@ -391,6 +414,10 @@ const SocketWrapper = ({ children }) => {
           m.tempId === msg.tempId ? { ...m, status: "pending" } : m,
         ),
       );
+    } finally {
+      if (activeUploadsRef.current[msg.tempId] === controller) {
+        delete activeUploadsRef.current[msg.tempId];
+      }
     }
   };
 

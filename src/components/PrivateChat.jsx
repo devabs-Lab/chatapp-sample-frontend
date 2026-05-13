@@ -211,6 +211,7 @@ const PrivateChat = ({
         m.message_type !== "audio" &&
         !m.fileUrl &&
         !m.isDownloading && // skip if already in progress
+        !m.isPaused &&
         m.aspect_ratio < 2,
     );
     mediaMessages.forEach((msg) => downloadFile(msg));
@@ -1164,7 +1165,8 @@ const PrivateChat = ({
           const total = message.filesize;
           const loaded = existingBytes + e.loaded;
 
-          const percent = Math.floor((loaded / total) * 100);
+          const percent =
+            total > 0 ? Math.min(Math.floor((loaded / total) * 100), 99) : 0;
           setMessages((prev) =>
             prev.map((m) =>
               m.id === message.id
@@ -1200,7 +1202,13 @@ const PrivateChat = ({
         }),
       );
     } catch (err) {
-      console.error("Download failed", err);
+      if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
+        console.error("Download failed", err);
+      }
+    } finally {
+      if (controllers.current[fileIdentifier] === controller) {
+        delete controllers.current[fileIdentifier];
+      }
     }
   };
 
@@ -1222,9 +1230,9 @@ const PrivateChat = ({
     if (activeUploadsRef.current[message.tempId]) {
       activeUploadsRef.current[message.tempId].abort();
       delete activeUploadsRef.current[message.tempId];
-
-      setMessages((prev) => prev.filter((m) => m.tempId !== message?.tempId));
     }
+
+    setMessages((prev) => prev.filter((m) => m.tempId !== message?.tempId));
 
     // remove from UI
 
@@ -1292,7 +1300,7 @@ const PrivateChat = ({
 
           const metadata = await createVideoMetadata(file);
 
-          if (metadata.duration) {
+          if (Number.isFinite(metadata.duration) && metadata.duration > 0) {
             // preview = await createVideoThumbnail(file);
             optimisticMessage = {
               id: tempId,
@@ -1311,7 +1319,7 @@ const PrivateChat = ({
               width: metadata.width,
               height: metadata.height,
               aspect_ratio: metadata.aspectRatio,
-              duration: metadata.duration,
+              duration: Math.round(metadata.duration),
               file,
               preview,
               fileurl,
@@ -1322,7 +1330,10 @@ const PrivateChat = ({
         } else if (messageType === "audio") {
           const audioMetadata = await createAudioMetadata(file);
           // Other files: no optimistic UI
-          if (audioMetadata.duration) {
+          if (
+            Number.isFinite(audioMetadata.duration) &&
+            audioMetadata.duration > 0
+          ) {
             optimisticMessage = {
               id: tempId,
               tempId,
@@ -1343,7 +1354,7 @@ const PrivateChat = ({
               width: 0,
               height: 0,
               aspect_ratio: 0,
-              duration: audioMetadata.duration,
+              duration: Math.round(audioMetadata.duration),
             };
           }
         } else {

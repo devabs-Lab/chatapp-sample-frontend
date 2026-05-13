@@ -4,10 +4,13 @@ import axiosbase from "../axiosconfig";
 import { io } from "socket.io-client";
 import { format } from "date-fns";
 import { IoMdSend, IoMdExit } from "react-icons/io";
+import { FiArrowLeft } from "react-icons/fi";
 import { showSuccessAlert, showErrorAlert } from "./alerthelper";
 import classes from "../pages/styling/chat.module.css";
 
-const GroupChat = ({ group, onLeaveGroup }) => {
+import { RiEmotionHappyLine } from "react-icons/ri";
+
+const GroupChat = ({ group, onLeaveGroup, isMobile, setMobileView }) => {
   const { user } = useContext(Appstate);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -126,6 +129,14 @@ const GroupChat = ({ group, onLeaveGroup }) => {
     <div className={classes.groupChatContainer}>
       {/* Chat Header */}
       <div className={classes.chatHeader}>
+        {isMobile && (
+          <button
+            onClick={() => setMobileView("list")}
+            className={classes.backbutton}
+          >
+            <FiArrowLeft />
+          </button>
+        )}
         <div className={classes.chatHeaderInfo}>
           <h3>{group.name}</h3>
           <p>
@@ -179,6 +190,9 @@ const GroupChat = ({ group, onLeaveGroup }) => {
 
       {/* Message Input */}
       <form className={classes.messageInput} onSubmit={handleSendMessage}>
+        <button type="button" className={classes.iconButton}>
+          <RiEmotionHappyLine size={26} />
+        </button>
         <input
           type="text"
           value={newMessage}
