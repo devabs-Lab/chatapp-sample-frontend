@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { Appstate } from "../App";
 import axiosbase from "../axiosconfig";
-import { io } from "socket.io-client";
 import { format } from "date-fns";
 import { IoMdSend, IoMdExit } from "react-icons/io";
 import { FiArrowLeft } from "react-icons/fi";
 import { showSuccessAlert, showErrorAlert } from "./alerthelper";
 import classes from "../pages/styling/chat.module.css";
-
+import chatAreaClasses from "../pages/styling/chatArea.module.css";
+import InitialsAvatar from "./InitialsAvatar";
 import { RiEmotionHappyLine } from "react-icons/ri";
 
 const GroupChat = ({ group, onLeaveGroup, isMobile, setMobileView }) => {
@@ -17,29 +17,10 @@ const GroupChat = ({ group, onLeaveGroup, isMobile, setMobileView }) => {
   const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState(null);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [isTyping, setIsTyping] = useState(false);
 
-  useEffect(() => {
-    // Initialize socket connection
-    const newSocket = io("http://localhost:5500"); // Local development
-    setSocket(newSocket);
 
-    // Join group room
-    newSocket.emit("join-group", group.id);
-
-    // Listen for new messages
-    newSocket.on("receive-group-message", (message) => {
-      setMessages((prev) => [...prev, message]);
-    });
-
-    // Load existing messages
-    fetchMessages();
-
-    return () => {
-      newSocket.emit("leave-group", group.id);
-      newSocket.disconnect();
-    };
-  }, [group.id]);
 
   useEffect(() => {
     scrollToBottom();
@@ -126,89 +107,148 @@ const GroupChat = ({ group, onLeaveGroup, isMobile, setMobileView }) => {
   }
 
   return (
-    <div className={classes.groupChatContainer}>
+    <div className={chatAreaClasses.chatArea}>
       {/* Chat Header */}
-      <div className={classes.chatHeader}>
+      <div className={chatAreaClasses.chatHeader}>
         {isMobile && (
           <button
             onClick={() => setMobileView("list")}
-            className={classes.backbutton}
+            className={chatAreaClasses.backButton}
           >
-            <FiArrowLeft />
+            <i className="ti ti-arrow-left"></i>
           </button>
         )}
-        <div className={classes.chatHeaderInfo}>
-          <h3>{group.name}</h3>
-          <p>
-            {group.member_count} members • {group.description}
+        
+        <InitialsAvatar name={group.name} size="md" status="none" />
+
+        <div className={chatAreaClasses.headerInfo}>
+          <h3 className={chatAreaClasses.headerName}>{group.name}</h3>
+          <p className={chatAreaClasses.headerStatus} style={{ color: 'var(--plum-lt)' }}>
+            {group.member_count} members • {group.description || "No description"}
           </p>
         </div>
-        <div className={classes.chatHeaderActions}>
+        
+        <div className={chatAreaClasses.headerActions}>
           {group.user_role === "admin" && (
-            <span className={classes.adminBadge}>Admin</span>
+            <span style={{background: 'var(--m)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', marginRight: '8px'}}>Admin</span>
           )}
+          <button className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgPale}`} title="Search">
+            <i className="ti ti-search"></i>
+          </button>
+          <button className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgPlum}`} title="Group Call">
+            <i className="ti ti-phone"></i>
+          </button>
+          <button className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgMagenta}`} title="Group Video Call">
+            <i className="ti ti-video"></i>
+          </button>
           <button
-            className={classes.leaveButton}
+            className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgPale}`}
             onClick={handleLeaveGroup}
             title="Leave Group"
           >
-            <IoMdExit />
+            <i className="ti ti-logout" style={{ transform: 'rotate(180deg)', display: 'inline-block' }}></i>
           </button>
         </div>
       </div>
 
       {/* Messages Area */}
-      <div className={classes.messagesArea}>
-        {messages.length === 0 ? (
-          <div className={classes.emptyMessages}>
-            <p>No messages yet. Start the conversation!</p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`${classes.messageItem} ${
-                message.sender_id === user.userid ? classes.ownMessage : ""
-              }`}
-            >
-              <div className={classes.messageContent}>
-                <div className={classes.messageHeader}>
-                  <span className={classes.messageSender}>
-                    {message.sender_username}
-                  </span>
-                  <span className={classes.messageTime}>
-                    {formatMessageTime(message.created_at)}
-                  </span>
-                </div>
-                <div className={classes.messageText}>{message.content}</div>
-              </div>
+      <div className={chatAreaClasses.messagesArea}>
+        <div className={chatAreaClasses.messagesInner}>
+          {messages.length === 0 ? (
+            <div className={chatAreaClasses.emptyMessages}>
+              <p>No messages yet. Start the conversation!</p>
             </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
+          ) : (
+            messages.map((message, index) => {
+              const isOwn = message.sender_id === user.userid;
+              const prevMsg = messages[index - 1];
+              const showDivider = !prevMsg || 
+                new Date(message.created_at).toDateString() !== new Date(prevMsg.created_at).toDateString();
+              
+              return (
+                <React.Fragment key={message.id}>
+                  {showDivider && (
+                    <div className={chatAreaClasses.dateDivider}>
+                      <span className={chatAreaClasses.dateDividerText}>
+                        {new Date(message.created_at).toDateString() === new Date().toDateString() ? "Today" : new Date(message.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </div>
+                  )}
+                  <div
+                    className={`${chatAreaClasses.messageItem} ${isOwn ? chatAreaClasses.ownMessage : ""}`}
+                  >
+                    <div className={chatAreaClasses.avatarWrapper}>
+                      <InitialsAvatar
+                        name={message.sender_username}
+                        size="sm"
+                        status="none"
+                        backgroundColor={isOwn ? "var(--lav)" : undefined}
+                        color={isOwn ? "var(--m-dk)" : undefined}
+                      />
+                    </div>
+                    <div className={chatAreaClasses.messageContent}>
+                      {!isOwn && (
+                        <span className={chatAreaClasses.messageSender}>
+                          {message.sender_username}
+                        </span>
+                      )}
+                      <div className={chatAreaClasses.messageBubble}>{message.content}</div>
+                    </div>
+                    <span className={chatAreaClasses.messageTime}>
+                      {formatMessageTime(message.created_at)}
+                    </span>
+                  </div>
+                </React.Fragment>
+              );
+            })
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Message Input */}
-      <form className={classes.messageInput} onSubmit={handleSendMessage}>
-        <button type="button" className={classes.iconButton}>
-          <RiEmotionHappyLine size={26} />
-        </button>
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type your message..."
-          className={classes.messageInputField}
-          disabled={isTyping}
-        />
-        <button
-          type="submit"
-          className={classes.sendButton}
-          disabled={!newMessage.trim() || isTyping}
-        >
-          <IoMdSend size={26} color={newMessage.trim() ? "#0b93f6" : "#999"} />
-        </button>
-      </form>
+      <div className={chatAreaClasses.inputContainer}>
+        <form className={chatAreaClasses.inputRow} onSubmit={handleSendMessage}>
+          <button
+            type="button"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--plum-lt)', fontSize: '20px', display: 'flex',
+              alignItems: 'center', padding: '0 2px', flexShrink: 0
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach file"
+          >
+            <i className="ti ti-paperclip"></i>
+          </button>
+
+          <textarea
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Write a message..."
+            className={chatAreaClasses.messageInput}
+            disabled={isTyping}
+            rows={1}
+          />
+          
+          <label style={{ display: 'none' }}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="*/*"
+              multiple
+            />
+          </label>
+
+          <button
+            type="submit"
+            className={chatAreaClasses.sendButton}
+            disabled={!newMessage.trim() || isTyping}
+          >
+            <i className="ti ti-send"></i>
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

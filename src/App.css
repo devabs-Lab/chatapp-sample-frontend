@@ -9,11 +9,9 @@ body.swal2-shown {
   overflow-y: visible !important;
 }
 body {
-  font-family: "Arial", sans-serif;
-
-  background-color: #f6f5f7 !important;
-  min-height: 100vh;
-  transition: all 0.3s ease-in-out;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #ffffff;
+  overflow: hidden;
 }
 
 .tiny-icon {

@@ -1,0 +1,407 @@
+/* ============================================================
+   chatArea.module.css — UoPeople Chat Area Layout (Panel 3)
+   Pixel-perfect match to design mockup
+   ════════════════════════════════════════════════════════════ */
+
+.chatArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--wh);
+  height: 100%;
+  position: relative;
+  min-width: 0;
+}
+
+/* ─── Chat Header (distinct from message area) ─── */
+.chatHeader {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--bdr);
+  background: var(--lav-pale);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: var(--plum);
+  font-size: 20px;
+  cursor: pointer;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .backButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.headerInfo {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  flex: 1;
+}
+
+.headerName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plum);
+  margin: 0;
+}
+
+.headerStatus {
+  font-size: 11px;
+  color: var(--grn);
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.iconButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.15s ease;
+}
+
+.bgPale {
+  background: var(--wh);
+  color: var(--plum);
+  border: 1px solid var(--bdr);
+}
+
+.bgPlum {
+  background: var(--plum);
+  color: var(--wh);
+}
+
+.bgMagenta {
+  background: var(--m);
+  color: var(--wh);
+}
+
+.iconButton:hover {
+  opacity: 0.85;
+  transform: scale(1.04);
+}
+
+/* ─── Messages Area (WHITE background per mockup) ─── */
+.messagesArea {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden !important;
+  overflow-anchor: none;
+  padding: 20px 24px 14px;
+  background: var(--wh);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.messagesInner {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  justify-content: flex-end;
+}
+
+/* ─── Date Divider ─── */
+.dateDivider {
+  text-align: center;
+  font-size: 11px;
+  color: var(--plum-lt);
+  position: relative;
+  font-weight: 500;
+  margin: 16px 0 12px;
+}
+
+.dateDivider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 0.5px;
+  background: var(--lav-dk);
+}
+
+.dateDividerText {
+  background: var(--wh);
+  padding: 0 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Message Rows ─── */
+.messageItem {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  max-width: 65%;
+  margin-bottom: 6px;
+}
+
+.messageItem.ownMessage {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.avatarWrapper {
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+
+.messageAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--wh);
+}
+
+.messageContent {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+
+.messageSender {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--m);
+  margin-bottom: 3px;
+}
+
+/* ─── Message Bubbles ─── */
+.messageBubble {
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border-bottom-left-radius: 4px;
+  background: var(--lav-pale);
+  color: var(--plum);
+  border: 1px solid var(--bdr);
+  font-size: 13px;
+  line-height: 1.55;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.messageItem.ownMessage .messageBubble {
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 4px;
+  background: var(--m);
+  color: var(--wh);
+  border: none;
+  box-shadow: 0 2px 6px rgba(145, 0, 108, 0.2);
+}
+
+/* Timestamp — sits below message group, centered */
+.messageTime {
+  font-size: 10px;
+  color: var(--plum-lt);
+  margin-top: 4px;
+  white-space: nowrap;
+  text-align: center;
+  width: 100%;
+}
+
+/* ─── File Attachment Bubble ─── */
+.fileAttachmentBubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--lav-pale);
+  border-radius: 12px;
+  border: 1px solid var(--bdr);
+  width: 240px;
+  max-width: 100%;
+}
+
+.fileIconBox {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--plum);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wh);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.fileInfo {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fileName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plum);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.fileName:hover {
+  text-decoration: underline;
+}
+
+.fileMeta {
+  font-size: 10px;
+  color: var(--plum-lt);
+  margin-top: 2px;
+}
+
+/* ─── Input Area (full width, clean) ─── */
+.inputContainer {
+  padding: 14px 24px 18px;
+  border-top: 1px solid var(--bdr);
+  background: var(--wh);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Toolbar row — hidden in the mockup but kept for functionality */
+.toolbarRow {
+  display: none;
+}
+
+.toolbarButton {
+  display: none;
+}
+
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.messageInput {
+  flex: 1;
+  background: var(--lav-pale);
+  border: 1px solid var(--bdr);
+  border-radius: 24px;
+  padding: 11px 20px;
+  font-size: 13px;
+  color: var(--plum);
+  outline: none;
+  min-height: 42px;
+  max-height: 120px;
+  resize: none;
+  line-height: 1.4;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.messageInput:focus {
+  border-color: var(--m);
+}
+
+.messageInput::placeholder {
+  color: var(--plum-lt);
+  opacity: 0.55;
+}
+
+.sendButton {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--m);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--wh);
+  font-size: 18px;
+  box-shadow: 0 2px 8px rgba(145, 0, 108, 0.3);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sendButton:hover:not(:disabled) {
+  background: var(--m-dk);
+  transform: scale(1.04);
+}
+
+.sendButton:disabled {
+  background: var(--lav-dk);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ─── Scroll-to-bottom badge ─── */
+.newMessageBadge {
+  position: absolute;
+  bottom: 85px;
+  right: 20px;
+  background: var(--m);
+  color: var(--wh);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(145, 0, 108, 0.25);
+  border: none;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.newMessageBadge:hover {
+  background: var(--m-dk);
+}
+
+/* ─── Empty / Loading states ─── */
+.emptyMessages, .chatLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--plum-lt);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+.loadingSpinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--bdr);
+  border-top-color: var(--m);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}

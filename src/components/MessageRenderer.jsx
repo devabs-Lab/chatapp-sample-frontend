@@ -1,12 +1,9 @@
 import React, { memo, useCallback } from "react";
-// import { handleMediaLoad } from "./PrivateChat";
-import {
-  TextMessage,
-  ImageMessage,
-  VideoMessage,
-  FileMessage,
-  AudioMessage,
-} from "./Thumbnail.jsx";
+import TextMessage from "./TextMessage.jsx";
+import ImageMessage from "./ImageMessage.jsx";
+import VideoMessage from "./VideoMessage.jsx";
+import FileMessage from "./FileMessage.jsx";
+import AudioMessage from "./AudioMessage.jsx";
 
 const MessageRenderer = memo(function MessageRenderer({
   message,
@@ -19,16 +16,10 @@ const MessageRenderer = memo(function MessageRenderer({
   const ts =
     message.delivered_at || message.created_at || new Date().toISOString();
 
-  // const ageMs = Date.now() - new Date(ts).getTime();
-
-  // const isOptimistic = String(message.tempId || "").startsWith("temp-");
-  // const isRecent = ageMs >= 0 && ageMs < 5_000; // 5s window for "new" messages
-  // const messageId = message.id || message.tempId;
   const isSender = message.sender_id === user.userid;
-  // const isReceiver = message.sender_id === conversation.other_user_id;
   const handleLoad = useCallback(() => {
-    handleMediaLoad(message.id || message.tempId, isSender);
-  }, [message.id, message.tempId, isSender]);
+    handleMediaLoad?.(message.id || message.tempId, isSender);
+  }, [message.id, message.tempId, isSender, handleMediaLoad]);
 
   switch (message.message_type) {
     case "text":

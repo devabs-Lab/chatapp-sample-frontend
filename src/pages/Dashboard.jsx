@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from "react";
 import classes from "./styling/dashboard.module.css";
-import Header from "./Header";
-import Footer from "./Footer";
-
 import { Outlet, useLocation } from "react-router-dom";
+
 function Dashboard() {
-  const [showMobileFooter, setShowMobileFooter] = useState(false);
 
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -22,24 +19,13 @@ function Dashboard() {
     };
   }, []);
 
-  const shouldHideFooter =
-    isMobile && location.pathname === "/chat" && !showMobileFooter;
-  const isMobileChatPage = isMobile && location.pathname === "/chat";
 
   return (
-    <>
-      <div
-        className={`${classes.dashboardLayout} ${
-          isMobileChatPage ? classes.mobileChatLayout : ""
-        }`}
-      >
-        <Header />
-        <main className={classes.mainContent}>
-          <Outlet context={{ setShowMobileFooter }} />
-        </main>
-        {!shouldHideFooter && <Footer />}
-      </div>
-    </>
+    <div className={classes.dashboardLayout}>
+      <main className={classes.mainContent}>
+        <Outlet />
+      </main>
+    </div>
   );
 }
 

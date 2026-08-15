@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useContext, useRef, use } from "react";
 
-import { useOutletContext } from "react-router-dom";
 import { Appstate } from "../App";
 import axiosbase from "../axiosconfig";
 import classes from "./styling/chat.module.css";
+import layoutClasses from "./styling/layout.module.css";
+import inboxClasses from "./styling/inbox.module.css";
+import chatAreaClasses from "./styling/chatArea.module.css";
+import InitialsAvatar from "../components/InitialsAvatar";
 import {
   IoMdChatboxes,
   IoMdPeople,
   IoMdPerson,
   IoMdCompass,
 } from "react-icons/io";
-
+import { FiMessageSquare, FiBook, FiVideo, FiSearch } from "react-icons/fi";
 import { BsPlusCircle } from "react-icons/bs";
 import GroupChat from "../components/GroupChat";
 import PrivateChat from "../components/PrivateChat";
@@ -27,28 +30,31 @@ import {
   FiArrowLeft,
 } from "react-icons/fi";
 import editimage from "../assets/edit.png";
+import { useChatContext } from "../context/ChatContext";
 
-const Chat = ({
-  selectedConversation,
-  setSelectedConversation,
-  setMessages,
-  setMessagesCache,
-  atBottomRef,
-  pendingAutoScrollRef,
-  hydratedChatsRef,
-  pendingMessagesRef,
-  activeUploadsRef,
-  resendPendingMessage,
-  setUnreadCount,
-  unreadCount,
-  messages,
-  messagesCache,
-  updateCache,
-  sendFileToServer,
-  offset,
-  setoffset,
-}) => {
-  const { setShowMobileFooter } = useOutletContext();
+const Chat = () => {
+  const {
+    selectedConversation,
+    setSelectedConversation,
+    messages,
+    setMessages,
+    messagesCache,
+    setMessagesCache,
+    unreadCount,
+    setUnreadCount,
+    offset,
+    setoffset,
+    atBottomRef,
+    pendingAutoScrollRef,
+    hydratedChatsRef,
+    pendingMessagesRef,
+    activeUploadsRef,
+    resendPendingMessage,
+    sendFileToServer,
+    updateCache,
+    replaceCache,
+  } = useChatContext();
+
   const { user, setuser } = useContext(Appstate);
   // console.log("Chat component rendered with user:", user);
   const fileInputRef = useRef(null);
@@ -56,7 +62,7 @@ const Chat = ({
   const [scrollPositions, setScrollPositions] = useState({});
   // console.log(scrollPositions);
 
-  const [activeTab, setActiveTab] = useState("groups"); // 'groups', 'inbox', 'create'
+  const [activeTab, setActiveTab] = useState("all"); // 'all', 'groups', 'inbox', 'create'
   const [groups, setGroups] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -83,13 +89,7 @@ const Chat = ({
     return () => window.removeEventListener("resize", handleResize);
   }, [isMobile]);
 
-  useEffect(() => {
-    if (isMobile) {
-      setShowMobileFooter(mobileView === "profile");
-    } else {
-      setShowMobileFooter(true);
-    }
-  }, [mobileView, isMobile]);
+
 
   useEffect(() => {
     const loadInitialChatData = async () => {
@@ -105,12 +105,7 @@ const Chat = ({
     loadInitialChatData();
   }, []);
 
-  const replaceCache = (other_user_id, messagesArray) => {
-    setMessagesCache((prev) => ({
-      ...prev,
-      [other_user_id]: messagesArray, // replace with clean array
-    }));
-  };
+  // replaceCache is retrieved from useChatContext()
 
   const fetchUserGroups = async () => {
     setGroupsLoading(true);
@@ -270,206 +265,379 @@ const Chat = ({
   const inboxUsers = allUsers.filter((u) => u.userid !== user.userid);
 
   return (
-    <div className={classes.chatContainer}>
+    <div className={`${layoutClasses.chatContainer} ${!selectedConversation && !selectedGroup ? layoutClasses.profileClosed : ""}`}>
       {/* Sidebar */}
       {!isMobile && (
         <>
-          <div className={classes.sidebar}>
-            {/* Content based on active tab */}
+          {/* 1. NAV RAIL */}
+          <div className={layoutClasses.navRail}>
+            {/* Branding */}
+            <div className={layoutClasses.branding}>
+              <div className={layoutClasses.logoBox}>U</div>
+              <div className={layoutClasses.brandText}>
+                <h2>UoPeople Chat</h2>
+                <p>Student Portal</p>
+              </div>
+            </div>
 
-            <div className={classes.sidebarContent}>
-              {activeTab === "groups" && (
-                <div className={classes.groupsList}>
-                  <h3>My Groups</h3>
-                  {groupsLoading ? (
-                    <div className={classes.inlineLoading}>
-                      <div className={classes.loadingSpinner}></div>
-                      <p>Loading groups...</p>
-                    </div>
-                  ) : groups.length === 0 ? (
-                    <div className={classes.emptyState}>
-                      <IoMdPeople size={48} />
-                      <p>You haven't joined any groups yet</p>
-                      <button
-                        className={classes.joinGroupButton}
-                        onClick={() => setActiveTab("create")}
-                      >
-                        Create or Join a Group
-                      </button>
-                    </div>
-                  ) : (
-                    groups.map((group) => (
-                      <div
-                        key={group.id}
-                        className={`${classes.groupItem} ${
-                          selectedGroup?.id === group.id ? classes.selected : ""
-                        }`}
-                        onClick={() => handleGroupSelect(group)}
-                      >
-                        <div className={classes.groupInfo}>
-                          <h4>{group.name}</h4>
-                          <p>{group.member_count} members</p>
-                        </div>
-                        {group.user_role === "admin" && (
-                          <span className={classes.adminBadge}>Admin</span>
-                        )}
-                      </div>
-                    ))
+            {/* Global Search */}
+            <div className={layoutClasses.globalSearch}>
+              <div className={layoutClasses.searchInputWrapper}>
+                <span className={layoutClasses.searchIcon}><i className="ti ti-search"></i></span>
+                <input type="text" placeholder="Search..." />
+              </div>
+            </div>
+
+            {/* MAIN section */}
+            <div className={layoutClasses.navSection}>
+              <h4 className={layoutClasses.sectionHeader}>MAIN</h4>
+              <div className={layoutClasses.navItems}>
+                <button 
+                  className={`${layoutClasses.navItem} ${activeTab === "inbox" ? layoutClasses.active : ""}`}
+                  onClick={() => { setActiveTab("inbox"); setSelectedConversation(null); setSelectedGroup(null); }}
+                >
+                  <span className={layoutClasses.navIcon}><i className="ti ti-message-circle"></i></span>
+                  <span>Messages</span>
+                  {Object.values(unreadCount).reduce((a, b) => a + b, 0) > 0 && (
+                    <span className={layoutClasses.badge}>
+                      {Object.values(unreadCount).reduce((a, b) => a + b, 0)}
+                    </span>
                   )}
-                </div>
+                </button>
+                <button 
+                  className={`${layoutClasses.navItem} ${activeTab === "groups" ? layoutClasses.active : ""}`}
+                  onClick={() => { setActiveTab("groups"); setSelectedConversation(null); setSelectedGroup(null); }}
+                >
+                  <span className={layoutClasses.navIcon}><i className="ti ti-users"></i></span>
+                  <span>Groups</span>
+                </button>
+                <button className={layoutClasses.navItem}>
+                  <span className={layoutClasses.navIcon}><i className="ti ti-book"></i></span>
+                  <span>Courses</span>
+                </button>
+                <button className={layoutClasses.navItem} disabled style={{opacity: 0.55}}>
+                  <span className={layoutClasses.navIcon}><i className="ti ti-phone-call"></i></span>
+                  <span>Calls</span>
+                  <span className={layoutClasses.soonBadge}>Soon</span>
+                </button>
+                <button className={layoutClasses.navItem} disabled style={{opacity: 0.55}}>
+                  <span className={layoutClasses.navIcon}><i className="ti ti-video"></i></span>
+                  <span>Video</span>
+                  <span className={layoutClasses.soonBadge}>Soon</span>
+                </button>
+              </div>
+            </div>
+
+            {/* QUICK DMS section */}
+            <div className={layoutClasses.navSection} style={{ marginTop: "4px" }}>
+              <h4 className={layoutClasses.sectionHeader}>QUICK DMS</h4>
+              <div className={layoutClasses.quickDms}>
+                {inboxUsers.slice(0, 3).map(u => (
+                  <div 
+                    key={u.userid} 
+                    className={layoutClasses.quickDmItem}
+                    onClick={() => handleConversationSelect({
+                      other_user_id: u.userid,
+                      other_username: u.username,
+                      avatar_url: u.avatar_url,
+                      bio: u.bio,
+                      phone: u.phone,
+                      department: u.department,
+                      status: u.status,
+                      last_seen: u.last_seen,
+                      message_count: 0,
+                    })}
+                  >
+                    <InitialsAvatar 
+                      name={u.username} 
+                      imageUrl={u.avatar_url} 
+                      size="sm" 
+                      status="none" 
+                    />
+                    <span className={layoutClasses.quickDmName}>{u.username}</span>
+                    <span className={`${layoutClasses.statusDot} ${u.status === "online" ? layoutClasses.online : layoutClasses.offline}`}></span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className={layoutClasses.spacer} />
+
+            {/* User Profile */}
+            <div className={layoutClasses.userProfileContainer} onClick={handleprofileform}>
+              <InitialsAvatar 
+                name={user.username} 
+                imageUrl={user.avatar_url} 
+                size="md" 
+                status="none" 
+              />
+              <div className={layoutClasses.userProfileText}>
+                <h4>{user.username}</h4>
+                <p>CS Student · Year 2</p>
+              </div>
+              <div className={layoutClasses.settingsIcon}>
+                <i className="ti ti-settings"></i>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. INBOX PANEL */}
+          <div className={inboxClasses.inboxPanel}>
+            <div className={inboxClasses.inboxHeader}>
+              <div>
+                <h3 className={inboxClasses.inboxTitle}>
+                  {activeTab === "groups" ? "Groups" : "Inbox"}
+                </h3>
+                <p style={{fontSize: '11px', color: 'var(--plum-lt)', margin: 0}}>
+                  {activeTab === "groups" ? `${groups.length} groups` : `${inboxUsers.length} conversations`}
+                </p>
+              </div>
+              <div className={inboxClasses.inboxHeaderActions}>
+                <button className={inboxClasses.iconButton} onClick={() => setActiveTab("create")} title="New conversation">
+                  <i className="ti ti-edit" style={{ fontSize: '19px' }}></i>
+                </button>
+              </div>
+            </div>
+
+            <div className={inboxClasses.searchContainer}>
+              <div className={inboxClasses.searchInputWrapper}>
+                <i className="ti ti-search" style={{color: 'var(--plum-lt)', flexShrink: 0, fontSize: '14px'}}></i>
+                <input 
+                  type="text" 
+                  className={inboxClasses.searchInput} 
+                  placeholder="Search conversations..." 
+                />
+              </div>
+            </div>
+
+            <div className={inboxClasses.filterTabs}>
+              <button 
+                className={`${inboxClasses.filterTab} ${activeTab === "all" ? inboxClasses.active : ""}`} 
+                onClick={() => setActiveTab("all")}
+              >
+                All
+              </button>
+              <button 
+                className={`${inboxClasses.filterTab} ${activeTab === "inbox" ? inboxClasses.active : ""}`} 
+                onClick={() => setActiveTab("inbox")}
+              >
+                Direct
+              </button>
+              <button 
+                className={`${inboxClasses.filterTab} ${activeTab === "groups" ? inboxClasses.active : ""}`} 
+                onClick={() => setActiveTab("groups")}
+              >
+                Groups
+              </button>
+            </div>
+
+            <div className={inboxClasses.conversationsList}>
+              {activeTab === "all" && (
+                usersLoading || groupsLoading ? (
+                  <div className={inboxClasses.loadingContainer}>
+                    <div className={inboxClasses.spinner}></div>
+                    <p>Loading conversations...</p>
+                  </div>
+                ) : [...inboxUsers.map(p => ({ ...p, isGroup: false })), ...groups.map(g => ({ ...g, isGroup: true }))].length === 0 ? (
+                  <div className={inboxClasses.emptyState}>
+                    <IoMdChatboxes />
+                    <p>No conversations found</p>
+                  </div>
+                ) : (
+                  [...inboxUsers.map(p => ({ ...p, isGroup: false })), ...groups.map(g => ({ ...g, isGroup: true }))].map((item) => {
+                    if (item.isGroup) {
+                      return (
+                        <div
+                          key={`group-${item.id}`}
+                          className={`${inboxClasses.conversationItem} ${selectedGroup?.id === item.id ? inboxClasses.selected : ""}`}
+                          onClick={() => handleGroupSelect(item)}
+                        >
+                          <div className={inboxClasses.avatarWrapper}>
+                            <InitialsAvatar 
+                              name={item.name} 
+                              size="lg" 
+                              status="none" 
+                              borderRadius="11px"
+                            />
+                          </div>
+                          <div className={inboxClasses.conversationContent}>
+                            <div className={inboxClasses.conversationHeader}>
+                              <h4 className={inboxClasses.conversationName}>{item.name}</h4>
+                            </div>
+                            <div className={inboxClasses.conversationFooter}>
+                              <p className={inboxClasses.conversationPreview}>
+                                {item.member_count} members
+                              </p>
+                              {item.user_role === "admin" && (
+                                <span className={classes.adminBadge} style={{background: 'var(--m)'}}>Admin</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div
+                          key={`user-${item.userid}`}
+                          className={`${inboxClasses.conversationItem} ${selectedConversation?.other_user_id === item.userid ? inboxClasses.selected : ""}`}
+                          onClick={() => handleConversationSelect({
+                            other_user_id: item.userid,
+                            other_username: item.username,
+                            avatar_url: item.avatar_url,
+                            bio: item.bio,
+                            phone: item.phone,
+                            department: item.department,
+                            status: item.status,
+                            last_seen: item.last_seen,
+                            message_count: 0,
+                          })}
+                        >
+                          <div className={inboxClasses.avatarWrapper}>
+                            <InitialsAvatar 
+                              name={item.username} 
+                              imageUrl={item.avatar_url} 
+                              size="lg" 
+                              status={item.status} 
+                            />
+                          </div>
+                          <div className={inboxClasses.conversationContent}>
+                            <div className={inboxClasses.conversationHeader}>
+                              <h4 className={inboxClasses.conversationName}>{item.username}</h4>
+                              <span className={inboxClasses.conversationTime}>
+                                {item.last_seen ? "Today" : ""}
+                              </span>
+                            </div>
+                            <div className={inboxClasses.conversationFooter}>
+                              <p className={`${inboxClasses.conversationPreview} ${unreadCount[item.userid] ? inboxClasses.unread : ""}`}>
+                                {unreadCount[item.userid] ? "New message received" : "Start chatting!"}
+                              </p>
+                              {unreadCount[item.userid] > 0 && (
+                                <span className={inboxClasses.unreadBadge}>
+                                  {unreadCount[item.userid]}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                  })
+                )
               )}
 
               {activeTab === "inbox" && (
-                <div className={classes.conversationsList}>
-                  <div className={classes.profilemenu}>
-                    <h3 className={classes.spanforinbox}>Inbox</h3>
-                    {showProfileMenu && (
-                      <div className={classes.profiledisplay}>
-                        <div className={classes.profileWrapper}>
-                          {user.avatar_url ? (
-                            <img
-                              // src={`http://localhost:5500${user.avatar_url}`} this is for local host setup
-                              src={user.avatar_url}
-                              alt=""
-                              className={classes.avatar}
-                              onClick={handleprofileform}
-                            />
-                          ) : (
-                            <IoMdPerson
-                              className={classes.defaultAvatarIcon}
-                              onClick={handleprofileform}
-                            />
-                          )}
-                        </div>
-                        <div className={classes.usernamefont}>
-                          {" "}
-                          {user.username}{" "}
-                        </div>
-                      </div>
-                    )}
-                    <span
-                      className={classes.profileicon}
-                      onClick={handleprofile}
-                    >
-                      <span>
-                        <FiMoreVertical />{" "}
-                      </span>
-                    </span>
+                usersLoading ? (
+                  <div className={inboxClasses.loadingContainer}>
+                    <div className={inboxClasses.spinner}></div>
+                    <p>Loading users...</p>
                   </div>
-
-                  {usersLoading ? (
-                    <div className={classes.inlineLoading}>
-                      <div className={classes.loadingSpinner}></div>
-                      <p>Loading users...</p>
-                    </div>
-                  ) : inboxUsers.length === 0 ? (
-                    <div className={classes.emptyState}>
-                      <IoMdChatboxes size={48} />
-                      <p>No other users found</p>
-                      <p>Start chatting by selecting a user!</p>
-                    </div>
-                  ) : (
-                    inboxUsers.map((person) => (
-                      <div
-                        key={person.userid}
-                        className={classes.conversationItem}
-                        onClick={() => {
-                          handleConversationSelect({
-                            other_user_id: person.userid,
-                            other_username: person.username,
-                            avatar_url: person.avatar_url,
-                            bio: person.bio,
-                            phone: person.phone,
-                            department: person.department,
-                            status: person.status,
-                            last_seen: person.last_seen,
-                            message_count: 0,
-                          });
-
-                          if (isMobile) setMobileView("chat");
-                        }}
-                      >
-                        <div className={classes.avatarWrapper}>
-                          {person.avatar_url ? (
-                            <img
-                              src={person.avatar_url}
-                              alt="avatar"
-                              className={classes.avatar}
-                            />
-                          ) : (
-                            <IoMdPerson className={classes.defaultAvatarIcon} />
+                ) : inboxUsers.length === 0 ? (
+                  <div className={inboxClasses.emptyState}>
+                    <IoMdChatboxes />
+                    <p>No other users found</p>
+                  </div>
+                ) : (
+                  inboxUsers.map((person) => (
+                    <div
+                      key={person.userid}
+                      className={`${inboxClasses.conversationItem} ${selectedConversation?.other_user_id === person.userid ? inboxClasses.selected : ""}`}
+                      onClick={() => handleConversationSelect({
+                        other_user_id: person.userid,
+                        other_username: person.username,
+                        avatar_url: person.avatar_url,
+                        bio: person.bio,
+                        phone: person.phone,
+                        department: person.department,
+                        status: person.status,
+                        last_seen: person.last_seen,
+                        message_count: 0,
+                      })}
+                    >
+                      <div className={inboxClasses.avatarWrapper}>
+                        <InitialsAvatar 
+                          name={person.username} 
+                          imageUrl={person.avatar_url} 
+                          size="lg" 
+                          status={person.status} 
+                        />
+                      </div>
+                      <div className={inboxClasses.conversationContent}>
+                        <div className={inboxClasses.conversationHeader}>
+                          <h4 className={inboxClasses.conversationName}>{person.username}</h4>
+                          <span className={inboxClasses.conversationTime}>
+                            {person.last_seen ? "Today" : ""}
+                          </span>
+                        </div>
+                        <div className={inboxClasses.conversationFooter}>
+                          <p className={`${inboxClasses.conversationPreview} ${unreadCount[person.userid] ? inboxClasses.unread : ""}`}>
+                            {unreadCount[person.userid] ? "New message received" : "Start chatting!"}
+                          </p>
+                          {unreadCount[person.userid] > 0 && (
+                            <span className={inboxClasses.unreadBadge}>
+                              {unreadCount[person.userid]}
+                            </span>
                           )}
                         </div>
-                        <div className={classes.conversationInfo}>
-                          <h4>{person.username}</h4>
+                      </div>
+                    </div>
+                  ))
+                )
+              )}
 
-                          <p>
-                            {unreadCount[person?.userid] != 0 &&
-                              unreadCount[person?.userid]}{" "}
+              {activeTab === "groups" && (
+                groupsLoading ? (
+                  <div className={inboxClasses.loadingContainer}>
+                    <div className={inboxClasses.spinner}></div>
+                    <p>Loading groups...</p>
+                  </div>
+                ) : groups.length === 0 ? (
+                  <div className={inboxClasses.emptyState}>
+                    <IoMdPeople />
+                    <p>You haven't joined any groups</p>
+                  </div>
+                ) : (
+                  groups.map((group) => (
+                    <div
+                      key={group.id}
+                      className={`${inboxClasses.conversationItem} ${selectedGroup?.id === group.id ? inboxClasses.selected : ""}`}
+                      onClick={() => handleGroupSelect(group)}
+                    >
+                      <div className={inboxClasses.avatarWrapper}>
+                        <InitialsAvatar 
+                          name={group.name} 
+                          size="lg" 
+                          status="none" 
+                          borderRadius="11px"
+                        />
+                      </div>
+                      <div className={inboxClasses.conversationContent}>
+                        <div className={inboxClasses.conversationHeader}>
+                          <h4 className={inboxClasses.conversationName}>{group.name}</h4>
+                        </div>
+                        <div className={inboxClasses.conversationFooter}>
+                          <p className={inboxClasses.conversationPreview}>
+                            {group.member_count} members
                           </p>
+                          {group.user_role === "admin" && (
+                            <span className={classes.adminBadge} style={{background: 'var(--m)'}}>Admin</span>
+                          )}
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
+                    </div>
+                  ))
+                )
               )}
 
               {activeTab === "create" && (
                 <CreateGroup onCreateGroup={handleCreateGroup} />
               )}
-
-              {activeTab === "explore" && (
-                <div className={classes.profilemenu}>
-                  <h3 className={classes.spanforexplore}>Explore</h3>
-                </div>
-              )}
-            </div>
-
-            {/* Tab Navigation */}
-            <div className={classes.tabNavigation}>
-              <button
-                className={`${classes.tabButton} ${
-                  activeTab === "groups" ? classes.active : ""
-                }`}
-                onClick={() => setActiveTab("groups")}
-              >
-                <IoMdPeople />
-                <span>My Groups</span>
-              </button>
-              <button
-                className={`${classes.tabButton} ${
-                  activeTab === "explore" ? classes.active : ""
-                }`}
-                onClick={() => setActiveTab("explore")}
-              >
-                <IoMdCompass />
-                <span>Explore</span>
-              </button>
-              <button
-                className={`${classes.tabButton} ${
-                  activeTab === "inbox" ? classes.active : ""
-                }`}
-                onClick={() => setActiveTab("inbox")}
-              >
-                <IoMdPerson />
-                <span>Inbox</span>
-              </button>
-              <button
-                className={`${classes.tabButton} ${
-                  activeTab === "create" ? classes.active : ""
-                }`}
-                onClick={() => setActiveTab("create")}
-              >
-                <BsPlusCircle />
-                <span>Create Group</span>
-              </button>
             </div>
           </div>
 
           {/* Main Chat Area */}
-          <div className={classes.chatArea}>
+          <div style={{ display: 'contents' }}>
             {showProfileForm ? (
-              <div className={classes.profileContainer}>
+              <div className={chatAreaClasses.chatArea}>
                 <div className={classes.profileCard}>
                   {/* {bander section} */}
                   <div className={classes.profileBanner}>
@@ -654,8 +822,6 @@ const Chat = ({
                 key={selectedConversation.other_user_id}
                 conversation={selectedConversation}
                 allUsers={allUsers}
-                messages={messages}
-                setMessages={setMessages}
                 setMobileView={setMobileView}
                 isMobile={isMobile}
                 savedScroll={
@@ -668,22 +834,9 @@ const Chat = ({
                   }))
                 }
                 onClose={() => setSelectedConversation(null)}
-                atBottomRef={atBottomRef}
-                pendingAutoScrollRef={pendingAutoScrollRef}
-                hydratedChatsRef={hydratedChatsRef}
-                updateCache={updateCache}
-                replaceCache={replaceCache}
-                setUnreadCount={setUnreadCount}
-                unreadCount={unreadCount}
-                offset={offset}
-                setoffset={setoffset}
-                resendPendingMessage={resendPendingMessage}
-                pendingMessagesRef={pendingMessagesRef}
-                activeUploadsRef={activeUploadsRef}
-                sendFileToServer={sendFileToServer}
               />
             ) : (
-              <div className={classes.welcomeScreen}>
+              <div className={`${chatAreaClasses.chatArea} ${classes.welcomeScreen}`}>
                 <div className={classes.welcomeContent}>
                   <IoMdChatboxes size={64} />
                   <h2>Welcome to UoPeople Chat!</h2>
@@ -1065,8 +1218,6 @@ const Chat = ({
                   key={selectedConversation.other_user_id}
                   conversation={selectedConversation}
                   allUsers={allUsers}
-                  messages={messages}
-                  setMessages={setMessages}
                   savedScroll={
                     scrollPositions[selectedConversation.other_user_id] || null
                   }
@@ -1077,19 +1228,6 @@ const Chat = ({
                     }))
                   }
                   onClose={() => setMobileView("list")}
-                  atBottomRef={atBottomRef}
-                  pendingAutoScrollRef={pendingAutoScrollRef}
-                  hydratedChatsRef={hydratedChatsRef}
-                  updateCache={updateCache}
-                  replaceCache={replaceCache}
-                  setUnreadCount={setUnreadCount}
-                  unreadCount={unreadCount}
-                  offset={offset}
-                  setoffset={setoffset}
-                  resendPendingMessage={resendPendingMessage}
-                  pendingMessagesRef={pendingMessagesRef}
-                  activeUploadsRef={activeUploadsRef}
-                  sendFileToServer={sendFileToServer}
                   isMobile={isMobile}
                   setMobileView={setMobileView}
                 />

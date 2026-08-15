@@ -1,31 +1,15 @@
+/* Dashboard is now just a passthrough — Chat.jsx controls the full screen */
 .dashboardLayout {
+  height: 100%;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
 }
 
 .mainContent {
   flex: 1;
-}
-
-@media (max-width: 768px) {
-  .mobileChatLayout {
-    height: 100dvh;
-    min-height: 100dvh;
-    overflow: hidden;
-  }
-
-  .mobileChatLayout .mainContent {
-    min-height: 0;
-    overflow: hidden;
-  }
-}
-
-@supports not (height: 100dvh) {
-  @media (max-width: 768px) {
-    .mobileChatLayout {
-      height: 100svh;
-      min-height: 100svh;
-    }
-  }
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
 }
