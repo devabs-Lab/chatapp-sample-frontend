@@ -891,16 +891,20 @@
   height: 18px;
 }
 
+/* Matches the read-receipt checkmark color (--chat-mute) rather than a fixed
+   hex, so it reads correctly on both the Deep and Classic themes instead of
+   a hardcoded white arc that was only ever visible against a dark ground. */
 .spinner_containerr circle:first-child {
   fill: none;
-  stroke: rgba(37, 99, 235, 0.18);
-
-  stroke-width: 5;
+  stroke: var(--chat-mute);
+  stroke-opacity: 0.22;
+  stroke-width: 3;
 }
 
 .spinner_containerr circle:last-child {
-  stroke: #ffffff;
-  stroke-width: 5;
+  fill: none;
+  stroke: var(--chat-mute);
+  stroke-width: 3;
 }
 
 .spinner_container svg {

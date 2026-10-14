@@ -1,0 +1,169 @@
+/* =========================================================
+   INCOMING CALL  —  the ringing screen
+
+   Shares the call screen's dark palette so answering is a
+   continuation rather than a jump between two designs.
+   ========================================================= */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 6, 18, 0.66);
+  backdrop-filter: blur(6px);
+  font-family: 'DM Sans', sans-serif;
+  padding: 20px;
+}
+
+.card {
+  --call-panel: #1d1327;
+  --call-border: #2f2139;
+  --call-text: #f4ecf7;
+  --call-muted: #a28fb0;
+
+  width: 100%;
+  max-width: 360px;
+  border-radius: 22px;
+  background: var(--call-panel);
+  border: 1px solid var(--call-border);
+  color: var(--call-text);
+  padding: 30px 26px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.kind {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--call-muted);
+  margin-bottom: 22px;
+}
+
+.avatar {
+  position: relative;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: var(--m);
+  color: #fff;
+  font-size: 34px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* the ring, echoing the ringtone */
+.pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--m);
+  opacity: 0.6;
+  animation: pulse 1.8s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(1.28);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.28);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
+
+.name {
+  margin-top: 20px;
+  font-size: 23px;
+  font-weight: 700;
+}
+
+.sub {
+  margin-top: 5px;
+  font-size: 13.5px;
+  color: var(--call-muted);
+}
+
+.actions {
+  margin-top: 30px;
+  display: flex;
+  gap: 46px;
+}
+
+.action {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--call-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.actionIcon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 23px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, filter 0.15s ease;
+}
+
+.action:active .actionIcon {
+  transform: scale(0.94);
+}
+
+.action:hover .actionIcon {
+  filter: brightness(1.12);
+}
+
+.decline .actionIcon {
+  background: #e5342a;
+}
+
+.answer .actionIcon {
+  background: #22c55e;
+}
+
+@media (max-width: 380px) {
+  .actions {
+    gap: 34px;
+  }
+}

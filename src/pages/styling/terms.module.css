@@ -16,26 +16,26 @@
 .privacy_content {
   padding: 00px 90px;
 }
-h3 {
+.privacy_container h3 {
   color: #4b345d;
   padding: 50px 0px 10px 0px;
   font-size: 25px;
   font-family: "Bebas Neue" !important;
 }
-a {
+.privacy_container a {
   text-decoration: none;
 }
-strong {
+.privacy_container strong {
   color: #dd3c8f;
   font-weight: 200;
   font-size: 18px;
   line-height: 1;
 }
-ul {
+.privacy_container ul {
   padding-left: 30px;
   line-height: 1.5;
 }
-p {
+.privacy_container p {
   font-size: 18px;
   line-height: 1.75;
   font-weight: 500;
@@ -48,7 +48,7 @@ p {
   font-size: 50px;
   font-family: "Bebas Neue" !important;
 }
-small {
+.privacy_container small {
   color: rgba(75, 52, 93, 0.8);
   padding: 0px 90px;
   font-size: 20px;

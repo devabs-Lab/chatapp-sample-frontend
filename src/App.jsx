@@ -4,12 +4,14 @@ import "./App.css";
 import { useState, useEffect, createContext } from "react";
 import Socketprovider from "./Socketprovider";
 import { ChatProvider } from "./context/ChatContext";
+import { CallProvider } from "./context/CallContext";
 import axiosbase from "./axiosconfig";
 import Dashboard from "./pages/Dashboard";
 import { getOrCreateDeviceKey } from "./db/keyManager.js";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Chat from "./pages/Chat";
+import JoinGroup from "./pages/JoinGroup";
 
 export const Appstate = createContext();
 export const CryptoContext = createContext();
@@ -75,15 +77,21 @@ function App() {
       <CryptoContext.Provider value={{ cryptoKey }}>
         <Socketprovider>
           <ChatProvider>
+            {/* CallProvider sits above the routes so a call survives
+                navigation — it owns the peer connections, not the screen. */}
+            <CallProvider>
             <Routes>
               <Route path="/" element={<Dashboard />}>
                 <Route path="login" element={<Registers />} />
                 <Route path="signup" element={<Registers />} />
                 <Route path="chat" element={<Chat />} />
+                {/* Landing page for a shared group invite link */}
+                <Route path="invite/:token" element={<JoinGroup />} />
                 <Route path="privacy" element={<Privacy />} />
                 <Route path="terms" element={<Terms />} />
               </Route>
             </Routes>
+            </CallProvider>
           </ChatProvider>
         </Socketprovider>
       </CryptoContext.Provider>

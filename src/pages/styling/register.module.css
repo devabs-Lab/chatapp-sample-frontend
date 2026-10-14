@@ -8,7 +8,10 @@
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  font-family: 'Inter', system-ui, sans-serif;
+  /* DM Sans, not Inter: nothing in index.html ever loaded Inter, so the
+     baseline silently fell back to system-ui here while the chat app
+     rendered DM Sans. Same font everywhere now. */
+  font-family: 'DM Sans', sans-serif;
 }
 
 /* === LEFT PANEL — Branding / Hero === */
@@ -57,6 +60,8 @@
   height: 44px;
   background: rgba(255,255,255,0.2);
   border-radius: 10px;
+  /* deliberately not the app font — the Times "U" was kept on request */
+  font-family: 'Times New Roman', Times, serif;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -203,7 +208,7 @@
   border: 1.5px solid #E0E0E0;
   border-radius: 10px;
   font-size: 14px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   color: #212121;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -289,6 +294,9 @@
 .submitBtn {
   width: 100%;
   padding: 14px;
+  /* form controls do not inherit font-family — without this the button
+     renders in the browser default while everything around it is DM Sans */
+  font-family: inherit;
   background: #91006C;
   color: #fff;
   border: none;
@@ -310,6 +318,37 @@
   background: #BDBDBD;
   cursor: not-allowed;
   transform: none;
+}
+
+/* Submitting (not invalid) — stays on-brand rather than falling back to the
+   generic disabled grey, so it doesn't read as an error state. Higher
+   specificity than .submitBtn:disabled (two classes beat one pseudo-class),
+   so this wins for as long as isSigningIn is true. */
+.submitBtn.loading {
+  background: #91006C;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.7s linear infinite;
+}
+
+/* CSS Modules rewrites animation names to a hashed local one even when no
+   matching @keyframes exists in this file — every .module.css that
+   animates has to declare its own keyframes, or the element just sits
+   still (see PLAN.md §5). */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 /* Checkbox */

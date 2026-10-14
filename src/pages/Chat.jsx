@@ -6,7 +6,17 @@ import classes from "./styling/chat.module.css";
 import layoutClasses from "./styling/layout.module.css";
 import inboxClasses from "./styling/inbox.module.css";
 import chatAreaClasses from "./styling/chatArea.module.css";
+import m from "./styling/mobile.module.css";
 import InitialsAvatar from "../components/InitialsAvatar";
+import ContactInfo from "../components/ContactInfo";
+import CallScreen from "../components/CallScreen";
+import MinimizedCallBar from "../components/MinimizedCallBar";
+import IncomingCall from "../components/IncomingCall";
+import CallsList from "../components/CallsList";
+import PublicGroupResults from "../components/PublicGroupResults";
+import WelcomePanel from "../components/WelcomePanel";
+import ThemeMenu from "../components/ThemeMenu";
+import { getStoredTheme, applyTheme } from "../utils/theme";
 import {
   IoMdChatboxes,
   IoMdPeople,
@@ -31,6 +41,12 @@ import {
 } from "react-icons/fi";
 import editimage from "../assets/edit.png";
 import { useChatContext } from "../context/ChatContext";
+import { useCall } from "../context/CallContext";
+import { useSocket } from "../Socketprovider";
+import {
+  formatMessagePreview,
+  formatPreviewTime,
+} from "../utils/messagePreview";
 
 const Chat = () => {
   const {
@@ -42,6 +58,8 @@ const Chat = () => {
     setMessagesCache,
     unreadCount,
     setUnreadCount,
+    lastMessages,
+    seedLastMessages,
     offset,
     setoffset,
     atBottomRef,
@@ -58,15 +76,32 @@ const Chat = () => {
   const { user, setuser } = useContext(Appstate);
   // console.log("Chat component rendered with user:", user);
   const fileInputRef = useRef(null);
+  const socket = useSocket();
 
   const [scrollPositions, setScrollPositions] = useState({});
   // console.log(scrollPositions);
 
   const [activeTab, setActiveTab] = useState("all"); // 'all', 'groups', 'inbox', 'create'
   const [groups, setGroups] = useState([]);
+  /* Newest message per group, keyed by group id — mirrors ChatContext's
+     lastMessages for direct conversations, but lives here instead since
+     GroupChat.jsx is deliberately self-contained (see its header comment)
+     and doesn't share state with ChatContext. */
+  const [groupLastMessages, setGroupLastMessages] = useState({});
+  const [groupUnreadCount, setGroupUnreadCount] = useState({});
+  /* Loaded messages per group id. GroupChat.jsx is remounted per group
+     (key={group.id}) and owns no state across that, so without this,
+     switching groups and coming back re-fetched from scratch and threw
+     away any older pages already scrolled back to. ChatContext's
+     messagesCache does the same job for private conversations. */
+  const [groupMessagesCache, setGroupMessagesCache] = useState({});
+
+  const cacheGroupMessages = (groupId, msgs) =>
+    setGroupMessagesCache((prev) =>
+      prev[groupId] === msgs ? prev : { ...prev, [groupId]: msgs },
+    );
   const [conversations, setConversations] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [bio, setBio] = useState(user.bio || "");
   const [phone, setPhone] = useState("");
@@ -80,8 +115,25 @@ const Chat = () => {
   const [conversationsLoading, setConversationsLoading] = useState(true);
   const [showedit, setshowedit] = useState(false);
   const [mobileView, setMobileView] = useState("list");
+  const [mobileSearch, setMobileSearch] = useState("");
+  /* Public groups matching the search box that the user hasn't joined yet —
+     shown as a separate "Public groups" section with a Join action, on the
+     Groups/All tabs. Private groups never appear here (the backend already
+     filters is_private = false in getPublicGroups); the only way into one
+     of those is a group admin adding you directly. */
+  const [publicGroupResults, setPublicGroupResults] = useState([]);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(getStoredTheme);
+  /* Call state lives in CallProvider, not here — a call has to survive
+     switching conversations, and the peer connections are held there. */
+  const { call, startCall, setDirectory, minimized } = useCall();
+  const activeCall = call.status !== "idle";
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -112,6 +164,36 @@ const Chat = () => {
     try {
       const response = await axiosbase.get("/groups/my-groups");
       setGroups(response.data);
+      /* Server-side unread counts (messages newer than this user's
+         last_read_at for the group), so the badges are already right on a
+         fresh page load instead of only counting what arrived over the
+         socket since. The server value is authoritative — it's derived from
+         the same last_read_at that opening a group updates. */
+      setGroupUnreadCount((prev) => {
+        const next = { ...prev };
+        response.data.forEach((g) => {
+          next[g.id] = Number(g.unread_count) || 0;
+        });
+        return next;
+      });
+      setGroupLastMessages((prev) => {
+        const next = { ...prev };
+        response.data.forEach((g) => {
+          if (!g.last_message_time) return;
+          const stamp = new Date(g.last_message_time).getTime();
+          const current = next[g.id];
+          if (current && current._t >= stamp) return;
+          next[g.id] = {
+            content: g.last_message,
+            message_type: g.last_message_type || "text",
+            filename: g.last_message_filename,
+            sender_id: g.last_message_sender_id,
+            time: g.last_message_time,
+            _t: stamp,
+          };
+        });
+        return next;
+      });
     } catch (error) {
       console.error("Error fetching groups:(chat.jsxfetchusergroups)", error);
       showErrorAlert(
@@ -123,11 +205,44 @@ const Chat = () => {
     }
   };
 
+  /* Search the Groups/All tabs for public groups the user hasn't joined —
+     debounced, and only while there's something to search for and a tab
+     where groups are actually visible. */
+  useEffect(() => {
+    const q = mobileSearch.trim();
+    if (!q || (activeTab !== "groups" && activeTab !== "all")) {
+      setPublicGroupResults([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      try {
+        const { data } = await axiosbase.get(
+          `/groups/public?search=${encodeURIComponent(q)}`,
+        );
+        if (cancelled) return;
+        const joinedIds = new Set(groups.map((g) => g.id));
+        setPublicGroupResults(data.filter((g) => !joinedIds.has(g.id)));
+      } catch (error) {
+        console.error("Error searching public groups:", error);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [mobileSearch, activeTab, groups]);
+
   const fetchAllUsers = async () => {
     setUsersLoading(true);
     try {
       const response = await axiosbase.get("/messages/users/all");
       setAllUsers(response.data);
+      /* Remote call tiles only get a user id from the signalling layer —
+         this is what turns that id back into a name and an avatar. */
+      setDirectory(response.data);
     } catch (error) {
       console.error("Error fetching all users:", error);
     } finally {
@@ -140,6 +255,7 @@ const Chat = () => {
     try {
       const response = await axiosbase.get("/messages/conversations");
       setConversations(response.data);
+      seedLastMessages(response.data);
       // console.log(response.data);
     } catch (error) {
       console.error(
@@ -155,6 +271,97 @@ const Chat = () => {
     }
   };
 
+  /* Join every group's Socket.IO room for the lifetime of the chat page —
+     not just the one currently open — so the inbox list can show a live
+     preview/unread badge for a group the user isn't looking at. Previously
+     only GroupChat.jsx joined (and left on unmount), which meant a message
+     to a closed group never reached the client at all until the group was
+     opened and a fresh GET refetched it. */
+  useEffect(() => {
+    if (!socket) return;
+
+    /* Socket.IO room membership does not survive a reconnect — a dropped
+       network connection or a backend restart gets a brand new server-side
+       socket.id with zero rooms joined, even though socket.io-client keeps
+       reusing the *same* client-side Socket object and simply reconnects it
+       (Socketprovider only creates a new object on login/logout). A ref
+       tracking "already joined" by object identity was wrong for exactly
+       this reason: it survived the reconnect and skipped rejoining, so a
+       backend restart silently stopped this group room from ever
+       delivering again for the rest of the session. "connect" fires for
+       the first connection AND every reconnect, so it's the right signal —
+       just (re)join everything each time; socket.join is a no-op
+       server-side if already in the room, so redundant joins on a groups
+       list change are harmless. */
+    const joinAllGroups = () => {
+      groups.forEach((g) => socket.emit("join-group", g.id));
+    };
+
+    socket.on("connect", joinAllGroups);
+    if (socket.connected) joinAllGroups();
+
+    return () => socket.off("connect", joinAllGroups);
+  }, [socket, groups]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const onGroupMessage = (payload) => {
+      const stamp = new Date(
+        payload.created_at || payload.delivered_at || Date.now(),
+      ).getTime();
+      setGroupLastMessages((prev) => {
+        const current = prev[payload.group_id];
+        if (current && current._t > stamp) return prev;
+        return {
+          ...prev,
+          [payload.group_id]: {
+            content: payload.content,
+            message_type: payload.message_type || "text",
+            filename: payload.filename,
+            sender_id: payload.sender_id,
+            time: payload.created_at || payload.delivered_at,
+            _t: stamp,
+          },
+        };
+      });
+
+      if (String(selectedGroup?.id) !== String(payload.group_id)) {
+        /* This group isn't mounted, so nothing else is keeping its cache
+           current — append here so reopening it shows the message that
+           arrived while it was closed, without a refetch. When it *is* the
+           open group, GroupChat.jsx owns the list and writes the cache
+           itself; appending here too would race that. */
+        setGroupMessagesCache((prev) => {
+          const existing = prev[payload.group_id];
+          if (!existing) return prev; // never loaded — nothing to append to
+          if (existing.some((m) => m.id === payload.id)) return prev;
+          return { ...prev, [payload.group_id]: [...existing, payload] };
+        });
+
+        if (payload.sender_id !== user.userid) {
+          setGroupUnreadCount((prev) => ({
+            ...prev,
+            [payload.group_id]: (prev[payload.group_id] || 0) + 1,
+          }));
+        }
+      }
+    };
+
+    const onAddedToGroup = () => {
+      fetchUserGroups();
+    };
+
+    socket.on("receive-group-message", onGroupMessage);
+    socket.on("added-to-group", onAddedToGroup);
+
+    return () => {
+      socket.off("receive-group-message", onGroupMessage);
+      socket.off("added-to-group", onAddedToGroup);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, user.userid, selectedGroup?.id]);
+
   const handleConversationSelect = (conversation) => {
     setSelectedConversation(conversation);
     setMessages(messagesCache[conversation.other_user_id] || []);
@@ -162,10 +369,38 @@ const Chat = () => {
     setActiveTab("inbox");
   };
 
+  /* An edit from the group info panel (name, description, @username) —
+     patch the row in place so the list and header agree immediately, then
+     refetch so member counts and ordering catch up too. */
+  const handleGroupUpdated = (updated) => {
+    setGroups((prev) =>
+      prev.map((g) => (g.id === updated.id ? { ...g, ...updated } : g)),
+    );
+    setSelectedGroup((prev) =>
+      prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+    );
+    fetchUserGroups();
+  };
+
+  /* "Send a message" from a group member's profile — the same shape
+     handleConversationSelect builds from an inbox row. */
+  const openPrivateChatWith = (member) => {
+    handleConversationSelect({
+      other_user_id: member.userid,
+      other_username: member.username,
+      avatar_url: member.avatar_url,
+      bio: member.bio,
+      status: member.status,
+      last_seen: member.last_seen,
+      message_count: 0,
+    });
+  };
+
   const handleGroupSelect = (group) => {
     setSelectedGroup(group);
     setSelectedConversation(null);
     setActiveTab("groups");
+    setGroupUnreadCount((prev) => ({ ...prev, [group.id]: 0 }));
   };
 
   const handleCreateGroup = async (groupData) => {
@@ -187,7 +422,10 @@ const Chat = () => {
     try {
       await axiosbase.post(`/groups/${group.id}/join`);
       showSuccessAlert("Success", "Successfully joined the group!");
-      fetchUserGroups();
+      setPublicGroupResults((prev) => prev.filter((g) => g.id !== group.id));
+      await fetchUserGroups();
+      handleGroupSelect(group);
+      setMobileSearch("");
     } catch (error) {
       console.error("Error joining group:", error);
       showErrorAlert(
@@ -216,10 +454,6 @@ const Chat = () => {
     } catch (err) {
       console.error(err);
     }
-  };
-
-  const handleprofile = () => {
-    setShowProfileMenu((prev) => !prev);
   };
 
   const handleprofileform = () => {
@@ -264,8 +498,166 @@ const Chat = () => {
 
   const inboxUsers = allUsers.filter((u) => u.userid !== user.userid);
 
+  /* Desktop search box — same match rule mobileList already uses. */
+  const desktopSearchQuery = mobileSearch.trim().toLowerCase();
+  const matchesSearch = (name) =>
+    !desktopSearchQuery || (name || "").toLowerCase().includes(desktopSearchQuery);
+
+  /* Preview line + timestamp for a direct-conversation row. */
+  const previewFor = (userId) => {
+    const entry = lastMessages[userId];
+    return {
+      text: formatMessagePreview(entry, user.userid) || "Start chatting!",
+      time: formatPreviewTime(entry?.time),
+      hasMessages: Boolean(entry),
+    };
+  };
+
+  const previewForGroup = (groupId, memberCount) => {
+    const entry = groupLastMessages[groupId];
+    if (!entry) {
+      return {
+        text: `${memberCount} member${memberCount === 1 ? "" : "s"}`,
+        time: "",
+        hasMessages: false,
+      };
+    }
+    return {
+      text: formatMessagePreview(entry, user.userid) || "",
+      time: formatPreviewTime(entry.time),
+      hasMessages: true,
+    };
+  };
+
+  /* Most-recent-first ordering for the inbox, shared by the mobile list,
+     the desktop Direct/Groups/All tabs, and search. A direct conversation's
+     activity is its last message (`lastMessages`, keyed by the other
+     user's id); a group's is `updated_at` — the backend already orders
+     `/groups/my-groups` by that, but sorting again here keeps it correct
+     once the "all" view interleaves groups with direct conversations, and
+     after any client-side reordering (search, filtering). Conversations
+     with no activity yet sort after ones that do (stable sort keeps them
+     in their original relative order among themselves, at the bottom). */
+  const activityTimeFor = (item) =>
+    item.isGroup
+      ? groupLastMessages[item.id]?._t ||
+        (item.updated_at ? new Date(item.updated_at).getTime() : 0)
+      : lastMessages[item.userid]?._t || 0;
+
+  const byRecency = (a, b) => activityTimeFor(b) - activityTimeFor(a);
+
+  const sortedInboxUsers = [...inboxUsers].sort((a, b) =>
+    byRecency({ ...a, isGroup: false }, { ...b, isGroup: false }),
+  );
+  const sortedGroups = [...groups].sort((a, b) =>
+    byRecency({ ...a, isGroup: true }, { ...b, isGroup: true }),
+  );
+
+  /* ---------------- mobile derived state ---------------- */
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = name.split(" ").filter((p) => p.length > 0);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  /* One list feeding the All / Direct / Groups chips, then searched. */
+  const mobileList = (() => {
+    const direct = sortedInboxUsers.map((p) => ({ ...p, isGroup: false }));
+    const groupItems = sortedGroups.map((g) => ({ ...g, isGroup: true }));
+
+    let list;
+    if (activeTab === "groups") list = groupItems;
+    else if (activeTab === "inbox") list = direct;
+    else list = [...direct, ...groupItems].sort(byRecency);
+
+    const q = mobileSearch.trim().toLowerCase();
+    if (!q) return list;
+
+    return list.filter((item) =>
+      (item.isGroup ? item.name : item.username || "")
+        .toLowerCase()
+        .includes(q),
+    );
+  })();
+
+  /* Calls and Video are two views over the same history, so they share the
+     column and only differ in what they filter to. */
+  const isCallsView = activeTab === "calls" || activeTab === "video";
+
+  /* The nav rail / bottom tab badges count *conversations* with something
+     unread, not messages. Seven messages from one person is still one
+     person waiting on you — the per-message count belongs on that person's
+     row in the list, which is where you go to find out who and how many.
+     Same rule for groups: one badge per group with unread messages,
+     however many messages that group holds. */
+  const unreadDirectCount = Object.values(unreadCount || {}).filter(
+    (n) => Number(n) > 0,
+  ).length;
+
+  const unreadGroupsCount = Object.values(groupUnreadCount || {}).filter(
+    (n) => Number(n) > 0,
+  ).length;
+
+  /* Which bottom tab reads as active for the current screen. */
+  const activeMobileTab =
+    mobileView === "calls"
+      ? "calls"
+      : mobileView === "profile"
+        ? "profile"
+        : activeTab === "groups"
+          ? "groups"
+          : "chats";
+
+  const mobileTabs = [
+    {
+      key: "chats",
+      label: "Chats",
+      icon: "ti-message-circle",
+      badge: unreadDirectCount,
+      onClick: () => {
+        setActiveTab("all");
+        setMobileView("list");
+      },
+    },
+    {
+      key: "groups",
+      label: "Groups",
+      icon: "ti-users",
+      badge: unreadGroupsCount,
+      onClick: () => {
+        setActiveTab("groups");
+        setMobileView("list");
+      },
+    },
+    {
+      key: "calls",
+      label: "Calls",
+      icon: "ti-phone",
+      onClick: () => setMobileView("calls"),
+    },
+    {
+      key: "profile",
+      label: "Profile",
+      icon: "ti-user",
+      onClick: () => setMobileView("profile"),
+    },
+  ];
+
   return (
     <div className={`${layoutClasses.chatContainer} ${!selectedConversation && !selectedGroup ? layoutClasses.profileClosed : ""}`}>
+      {/* Call screens overlay both layouts. Ringing gets its own screen —
+          answering is what opens the camera, so CallScreen must not mount
+          until the call is actually accepted. */}
+      <IncomingCall />
+      {(call.status === "connecting" ||
+        call.status === "active" ||
+        (call.status === "ringing" && call.direction === "outgoing")) &&
+        (minimized ? <MinimizedCallBar /> : <CallScreen />)}
+
       {/* Sidebar */}
       {!isMobile && (
         <>
@@ -293,37 +685,46 @@ const Chat = () => {
               <h4 className={layoutClasses.sectionHeader}>MAIN</h4>
               <div className={layoutClasses.navItems}>
                 <button 
-                  className={`${layoutClasses.navItem} ${activeTab === "inbox" ? layoutClasses.active : ""}`}
+                  className={`${layoutClasses.navItem} ${activeTab === "inbox" || activeTab === "all" ? layoutClasses.active : ""}`}
                   onClick={() => { setActiveTab("inbox"); setSelectedConversation(null); setSelectedGroup(null); }}
                 >
                   <span className={layoutClasses.navIcon}><i className="ti ti-message-circle"></i></span>
                   <span>Messages</span>
-                  {Object.values(unreadCount).reduce((a, b) => a + b, 0) > 0 && (
+                  {unreadDirectCount > 0 && (
                     <span className={layoutClasses.badge}>
-                      {Object.values(unreadCount).reduce((a, b) => a + b, 0)}
+                      {unreadDirectCount}
                     </span>
                   )}
                 </button>
-                <button 
+                <button
                   className={`${layoutClasses.navItem} ${activeTab === "groups" ? layoutClasses.active : ""}`}
                   onClick={() => { setActiveTab("groups"); setSelectedConversation(null); setSelectedGroup(null); }}
                 >
                   <span className={layoutClasses.navIcon}><i className="ti ti-users"></i></span>
                   <span>Groups</span>
+                  {unreadGroupsCount > 0 && (
+                    <span className={layoutClasses.badge}>
+                      {unreadGroupsCount}
+                    </span>
+                  )}
                 </button>
                 <button className={layoutClasses.navItem}>
                   <span className={layoutClasses.navIcon}><i className="ti ti-book"></i></span>
                   <span>Courses</span>
                 </button>
-                <button className={layoutClasses.navItem} disabled style={{opacity: 0.55}}>
+                <button
+                  className={`${layoutClasses.navItem} ${activeTab === "calls" ? layoutClasses.active : ""}`}
+                  onClick={() => { setActiveTab("calls"); setSelectedConversation(null); setSelectedGroup(null); }}
+                >
                   <span className={layoutClasses.navIcon}><i className="ti ti-phone-call"></i></span>
                   <span>Calls</span>
-                  <span className={layoutClasses.soonBadge}>Soon</span>
                 </button>
-                <button className={layoutClasses.navItem} disabled style={{opacity: 0.55}}>
+                <button
+                  className={`${layoutClasses.navItem} ${activeTab === "video" ? layoutClasses.active : ""}`}
+                  onClick={() => { setActiveTab("video"); setSelectedConversation(null); setSelectedGroup(null); }}
+                >
                   <span className={layoutClasses.navIcon}><i className="ti ti-video"></i></span>
                   <span>Video</span>
-                  <span className={layoutClasses.soonBadge}>Soon</span>
                 </button>
               </div>
             </div>
@@ -332,7 +733,7 @@ const Chat = () => {
             <div className={layoutClasses.navSection} style={{ marginTop: "4px" }}>
               <h4 className={layoutClasses.sectionHeader}>QUICK DMS</h4>
               <div className={layoutClasses.quickDms}>
-                {inboxUsers.slice(0, 3).map(u => (
+                {sortedInboxUsers.slice(0, 3).map(u => (
                   <div 
                     key={u.userid} 
                     className={layoutClasses.quickDmItem}
@@ -364,7 +765,21 @@ const Chat = () => {
             <div className={layoutClasses.spacer} />
 
             {/* User Profile */}
-            <div className={layoutClasses.userProfileContainer} onClick={handleprofileform}>
+            <div
+              className={layoutClasses.userProfileContainer}
+              style={{ position: "relative" }}
+              onClick={handleprofileform}
+            >
+              <ThemeMenu
+                open={themeMenuOpen}
+                theme={theme}
+                onSelectTheme={(id) => {
+                  setTheme(id);
+                  setThemeMenuOpen(false);
+                }}
+                onClose={() => setThemeMenuOpen(false)}
+              />
+
               <InitialsAvatar 
                 name={user.username} 
                 imageUrl={user.avatar_url} 
@@ -375,7 +790,25 @@ const Chat = () => {
                 <h4>{user.username}</h4>
                 <p>CS Student · Year 2</p>
               </div>
-              <div className={layoutClasses.settingsIcon}>
+              <div
+                className={layoutClasses.footerIcon}
+                role="button"
+                title="Change appearance"
+                aria-label="Change appearance"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setThemeMenuOpen((v) => !v);
+                }}
+              >
+                <i className="ti ti-palette"></i>
+              </div>
+
+              <div
+                className={layoutClasses.settingsIcon}
+                role="button"
+                title="Settings"
+                aria-label="Settings"
+              >
                 <i className="ti ti-settings"></i>
               </div>
             </div>
@@ -386,10 +819,20 @@ const Chat = () => {
             <div className={inboxClasses.inboxHeader}>
               <div>
                 <h3 className={inboxClasses.inboxTitle}>
-                  {activeTab === "groups" ? "Groups" : "Inbox"}
+                  {isCallsView
+                    ? activeTab === "video"
+                      ? "Video calls"
+                      : "Calls"
+                    : activeTab === "groups"
+                      ? "Groups"
+                      : "Inbox"}
                 </h3>
                 <p style={{fontSize: '11px', color: 'var(--plum-lt)', margin: 0}}>
-                  {activeTab === "groups" ? `${groups.length} groups` : `${inboxUsers.length} conversations`}
+                  {isCallsView
+                    ? "Recent activity"
+                    : activeTab === "groups"
+                      ? `${groups.length} groups`
+                      : `${inboxUsers.length} conversations`}
                 </p>
               </div>
               <div className={inboxClasses.inboxHeaderActions}>
@@ -399,13 +842,17 @@ const Chat = () => {
               </div>
             </div>
 
+            {!isCallsView && (
+            <>
             <div className={inboxClasses.searchContainer}>
               <div className={inboxClasses.searchInputWrapper}>
                 <i className="ti ti-search" style={{color: 'var(--plum-lt)', flexShrink: 0, fontSize: '14px'}}></i>
-                <input 
-                  type="text" 
-                  className={inboxClasses.searchInput} 
-                  placeholder="Search conversations..." 
+                <input
+                  type="text"
+                  className={inboxClasses.searchInput}
+                  placeholder="Search conversations..."
+                  value={mobileSearch}
+                  onChange={(e) => setMobileSearch(e.target.value)}
                 />
               </div>
             </div>
@@ -430,21 +877,45 @@ const Chat = () => {
                 Groups
               </button>
             </div>
+            </>
+            )}
 
             <div className={inboxClasses.conversationsList}>
+              {isCallsView && (
+                <CallsList
+                  selfId={user.userid}
+                  variant="desktop"
+                  filter={activeTab === "video" ? "video" : "all"}
+                />
+              )}
+
               {activeTab === "all" && (
                 usersLoading || groupsLoading ? (
                   <div className={inboxClasses.loadingContainer}>
                     <div className={inboxClasses.spinner}></div>
                     <p>Loading conversations...</p>
                   </div>
-                ) : [...inboxUsers.map(p => ({ ...p, isGroup: false })), ...groups.map(g => ({ ...g, isGroup: true }))].length === 0 ? (
+                ) : (
+                <>
+                  {publicGroupResults.length > 0 && (
+                    <PublicGroupResults
+                      results={publicGroupResults}
+                      onJoin={handleJoinGroup}
+                      classes={inboxClasses}
+                    />
+                  )}
+                  {[...sortedInboxUsers.map(p => ({ ...p, isGroup: false })), ...sortedGroups.map(g => ({ ...g, isGroup: true }))]
+                    .filter((item) => matchesSearch(item.isGroup ? item.name : item.username))
+                    .sort(byRecency).length === 0 && publicGroupResults.length === 0 ? (
                   <div className={inboxClasses.emptyState}>
                     <IoMdChatboxes />
                     <p>No conversations found</p>
                   </div>
                 ) : (
-                  [...inboxUsers.map(p => ({ ...p, isGroup: false })), ...groups.map(g => ({ ...g, isGroup: true }))].map((item) => {
+                  [...sortedInboxUsers.map(p => ({ ...p, isGroup: false })), ...sortedGroups.map(g => ({ ...g, isGroup: true }))]
+                    .filter((item) => matchesSearch(item.isGroup ? item.name : item.username))
+                    .sort(byRecency)
+                    .map((item) => {
                     if (item.isGroup) {
                       return (
                         <div
@@ -453,23 +924,33 @@ const Chat = () => {
                           onClick={() => handleGroupSelect(item)}
                         >
                           <div className={inboxClasses.avatarWrapper}>
-                            <InitialsAvatar 
-                              name={item.name} 
-                              size="lg" 
-                              status="none" 
+                            <InitialsAvatar
+                              name={item.name}
+                              imageUrl={item.avatar_url}
+                              size="lg"
+                              status="none"
                               borderRadius="11px"
                             />
                           </div>
                           <div className={inboxClasses.conversationContent}>
                             <div className={inboxClasses.conversationHeader}>
                               <h4 className={inboxClasses.conversationName}>{item.name}</h4>
+                              <span className={inboxClasses.conversationTime}>
+                                {previewForGroup(item.id, item.member_count).time}
+                              </span>
                             </div>
                             <div className={inboxClasses.conversationFooter}>
-                              <p className={inboxClasses.conversationPreview}>
-                                {item.member_count} members
+                              <p className={`${inboxClasses.conversationPreview} ${groupUnreadCount[item.id] ? inboxClasses.unread : ""}`}>
+                                {previewForGroup(item.id, item.member_count).text}
                               </p>
-                              {item.user_role === "admin" && (
-                                <span className={classes.adminBadge} style={{background: 'var(--m)'}}>Admin</span>
+                              {/* No "Admin" chip here — being an admin is a
+                                  fact about you inside the group, so it's
+                                  shown next to your name in the group's
+                                  member list, not on the conversation row. */}
+                              {groupUnreadCount[item.id] > 0 && (
+                                <span className={inboxClasses.unreadBadge}>
+                                  {groupUnreadCount[item.id]}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -504,12 +985,12 @@ const Chat = () => {
                             <div className={inboxClasses.conversationHeader}>
                               <h4 className={inboxClasses.conversationName}>{item.username}</h4>
                               <span className={inboxClasses.conversationTime}>
-                                {item.last_seen ? "Today" : ""}
+                                {previewFor(item.userid).time}
                               </span>
                             </div>
                             <div className={inboxClasses.conversationFooter}>
                               <p className={`${inboxClasses.conversationPreview} ${unreadCount[item.userid] ? inboxClasses.unread : ""}`}>
-                                {unreadCount[item.userid] ? "New message received" : "Start chatting!"}
+                                {previewFor(item.userid).text}
                               </p>
                               {unreadCount[item.userid] > 0 && (
                                 <span className={inboxClasses.unreadBadge}>
@@ -522,6 +1003,8 @@ const Chat = () => {
                       );
                     }
                   })
+                )}
+                </>
                 )
               )}
 
@@ -537,7 +1020,7 @@ const Chat = () => {
                     <p>No other users found</p>
                   </div>
                 ) : (
-                  inboxUsers.map((person) => (
+                  sortedInboxUsers.filter((p) => matchesSearch(p.username)).map((person) => (
                     <div
                       key={person.userid}
                       className={`${inboxClasses.conversationItem} ${selectedConversation?.other_user_id === person.userid ? inboxClasses.selected : ""}`}
@@ -565,12 +1048,12 @@ const Chat = () => {
                         <div className={inboxClasses.conversationHeader}>
                           <h4 className={inboxClasses.conversationName}>{person.username}</h4>
                           <span className={inboxClasses.conversationTime}>
-                            {person.last_seen ? "Today" : ""}
+                            {previewFor(person.userid).time}
                           </span>
                         </div>
                         <div className={inboxClasses.conversationFooter}>
                           <p className={`${inboxClasses.conversationPreview} ${unreadCount[person.userid] ? inboxClasses.unread : ""}`}>
-                            {unreadCount[person.userid] ? "New message received" : "Start chatting!"}
+                            {previewFor(person.userid).text}
                           </p>
                           {unreadCount[person.userid] > 0 && (
                             <span className={inboxClasses.unreadBadge}>
@@ -590,41 +1073,62 @@ const Chat = () => {
                     <div className={inboxClasses.spinner}></div>
                     <p>Loading groups...</p>
                   </div>
-                ) : groups.length === 0 ? (
+                ) : (
+                <>
+                  {publicGroupResults.length > 0 && (
+                    <PublicGroupResults
+                      results={publicGroupResults}
+                      onJoin={handleJoinGroup}
+                      classes={inboxClasses}
+                    />
+                  )}
+                  {sortedGroups.filter((g) => matchesSearch(g.name)).length === 0 && publicGroupResults.length === 0 ? (
                   <div className={inboxClasses.emptyState}>
                     <IoMdPeople />
-                    <p>You haven't joined any groups</p>
+                    <p>
+                      {desktopSearchQuery
+                        ? "No groups found — try a different search"
+                        : "You haven't joined any groups"}
+                    </p>
                   </div>
                 ) : (
-                  groups.map((group) => (
+                  sortedGroups.filter((g) => matchesSearch(g.name)).map((group) => (
                     <div
                       key={group.id}
                       className={`${inboxClasses.conversationItem} ${selectedGroup?.id === group.id ? inboxClasses.selected : ""}`}
                       onClick={() => handleGroupSelect(group)}
                     >
                       <div className={inboxClasses.avatarWrapper}>
-                        <InitialsAvatar 
-                          name={group.name} 
-                          size="lg" 
-                          status="none" 
+                        <InitialsAvatar
+                          name={group.name}
+                          imageUrl={group.avatar_url}
+                          size="lg"
+                          status="none"
                           borderRadius="11px"
                         />
                       </div>
                       <div className={inboxClasses.conversationContent}>
                         <div className={inboxClasses.conversationHeader}>
                           <h4 className={inboxClasses.conversationName}>{group.name}</h4>
+                          <span className={inboxClasses.conversationTime}>
+                            {previewForGroup(group.id, group.member_count).time}
+                          </span>
                         </div>
                         <div className={inboxClasses.conversationFooter}>
-                          <p className={inboxClasses.conversationPreview}>
-                            {group.member_count} members
+                          <p className={`${inboxClasses.conversationPreview} ${groupUnreadCount[group.id] ? inboxClasses.unread : ""}`}>
+                            {previewForGroup(group.id, group.member_count).text}
                           </p>
-                          {group.user_role === "admin" && (
-                            <span className={classes.adminBadge} style={{background: 'var(--m)'}}>Admin</span>
+                          {groupUnreadCount[group.id] > 0 && (
+                            <span className={inboxClasses.unreadBadge}>
+                              {groupUnreadCount[group.id]}
+                            </span>
                           )}
                         </div>
                       </div>
                     </div>
                   ))
+                )}
+                </>
                 )
               )}
 
@@ -809,9 +1313,22 @@ const Chat = () => {
               </div>
             ) : selectedGroup ? (
               <GroupChat
+                key={selectedGroup.id}
                 group={selectedGroup}
+                allUsers={allUsers}
+                cachedMessages={groupMessagesCache[selectedGroup.id]}
+                onCacheMessages={cacheGroupMessages}
+                onGroupUpdated={handleGroupUpdated}
+                onOpenPrivateChat={openPrivateChatWith}
                 isMobile={isMobile}
                 setMobileView={setMobileView}
+                onStartCall={(opts) =>
+                  startCall({
+                    groupId: selectedGroup.id,
+                    callType: opts?.audioOnly ? "audio" : "video",
+                    title: selectedGroup.name,
+                  })
+                }
                 onLeaveGroup={() => {
                   setSelectedGroup(null);
                   fetchUserGroups();
@@ -824,6 +1341,18 @@ const Chat = () => {
                 allUsers={allUsers}
                 setMobileView={setMobileView}
                 isMobile={isMobile}
+                onStartCall={(opts) =>
+                  startCall({
+                    receiverId: selectedConversation.other_user_id,
+                    callType: opts?.audioOnly ? "audio" : "video",
+                    title: selectedConversation.other_username,
+                    peer: {
+                      userid: selectedConversation.other_user_id,
+                      username: selectedConversation.other_username,
+                      avatar_url: selectedConversation.avatar_url,
+                    },
+                  })
+                }
                 savedScroll={
                   scrollPositions[selectedConversation.other_user_id] || null
                 }
@@ -836,26 +1365,8 @@ const Chat = () => {
                 onClose={() => setSelectedConversation(null)}
               />
             ) : (
-              <div className={`${chatAreaClasses.chatArea} ${classes.welcomeScreen}`}>
-                <div className={classes.welcomeContent}>
-                  <IoMdChatboxes size={64} />
-                  <h2>Welcome to UoPeople Chat!</h2>
-                  <p>Select a group or conversation to start chatting</p>
-                  <div className={classes.welcomeActions}>
-                    <button
-                      className={classes.primaryButton}
-                      onClick={() => setActiveTab("groups")}
-                    >
-                      Browse Groups
-                    </button>
-                    <button
-                      className={classes.secondaryButton}
-                      onClick={() => setActiveTab("create")}
-                    >
-                      Create Group
-                    </button>
-                  </div>
-                </div>
+              <div className={chatAreaClasses.chatArea}>
+                <WelcomePanel username={user.username} />
               </div>
             )}
           </div>
@@ -863,357 +1374,199 @@ const Chat = () => {
       )}
 
       {/* MOBILE VIEW */}
-
       {isMobile && (
         <>
-          {/* MOBILE CONTENT */}
-
-          {/* LIST / SIDEBAR SCREEN */}
+          {/* ============ CHATS / GROUPS LIST ============ */}
 
           {mobileView === "list" && (
-            <div className={classes.mobileSidebar}>
-              {/* GROUPS TAB */}
+            <div className={m.mobileScreen}>
+              <header className={m.inboxHeader}>
+                <div className={m.logoBox}>U</div>
+                <h1 className={m.inboxTitle}>
+                  {activeTab === "groups" ? "Groups" : "Messages"}
+                </h1>
+                <div className={m.headerSpacer} />
+                <button
+                  className={m.headerIconBtn}
+                  onClick={() => setActiveTab("create")}
+                  aria-label="New conversation"
+                >
+                  <i className="ti ti-edit"></i>
+                </button>
+              </header>
 
-              {activeTab === "groups" && (
-                <div className={classes.groupsList}>
-                  <h3>My Groups</h3>
-
-                  {groupsLoading ? (
-                    <div className={classes.inlineLoading}>
-                      <div className={classes.loadingSpinner}></div>
-                      <p>Loading groups...</p>
-                    </div>
-                  ) : groups.length === 0 ? (
-                    <div className={classes.emptyState}>
-                      <IoMdPeople size={48} />
-                      <p>You haven't joined any groups yet</p>
-
-                      <button
-                        className={classes.joinGroupButton}
-                        onClick={() => setActiveTab("create")}
-                      >
-                        Create or Join a Group
-                      </button>
-                    </div>
-                  ) : (
-                    groups.map((group) => (
-                      <div
-                        key={group.id}
-                        className={`${classes.groupItem} ${
-                          selectedGroup?.id === group.id ? classes.selected : ""
-                        }`}
-                        onClick={() => {
-                          handleGroupSelect(group);
-                          setMobileView("chat");
-                        }}
-                      >
-                        <div className={classes.groupInfo}>
-                          <h4>{group.name}</h4>
-                          <p>{group.member_count} members</p>
-                        </div>
-
-                        {group.user_role === "admin" && (
-                          <span className={classes.adminBadge}>Admin</span>
-                        )}
-                      </div>
-                    ))
-                  )}
+              {activeTab === "create" ? (
+                <div className={m.list}>
+                  <CreateGroup onCreateGroup={handleCreateGroup} />
                 </div>
-              )}
-
-              {/* INBOX TAB */}
-              {activeTab === "inbox" && (
-                <div className={classes.conversationsList}>
-                  {/* PROFILE */}
-
-                  {/* HEADER */}
-                  <div className={classes.profilemenu}>
-                    <h3 className={classes.spanforinbox}>Inbox</h3>
-                    {showProfileMenu && (
-                      <div className={classes.profiledisplay}>
-                        <div className={classes.profileWrapper}>
-                          {user.avatar_url ? (
-                            <img
-                              // src={`http://localhost:5500${user.avatar_url}`} this is for local host setup
-                              src={user.avatar_url}
-                              alt=""
-                              className={classes.avatar}
-                              onClick={handleprofileform}
-                            />
-                          ) : (
-                            <IoMdPerson
-                              className={classes.defaultAvatarIcon}
-                              onClick={handleprofileform}
-                            />
-                          )}
-                        </div>
-                        <div className={classes.usernamefont}>
-                          {" "}
-                          {user.username}{" "}
-                        </div>
-                      </div>
-                    )}
-                    <span
-                      className={classes.profileicon}
-                      onClick={handleprofile}
-                    >
-                      <FiMoreVertical />
-                    </span>
+              ) : (
+                <>
+                  <div className={m.searchWrap}>
+                    <div className={m.searchField}>
+                      <i className="ti ti-search"></i>
+                      <input
+                        className={m.searchInput}
+                        placeholder="Search conversations..."
+                        value={mobileSearch}
+                        onChange={(e) => setMobileSearch(e.target.value)}
+                      />
+                    </div>
                   </div>
 
-                  {/* USERS */}
-                  {usersLoading ? (
-                    <div className={classes.inlineLoading}>
-                      <div className={classes.loadingSpinner}></div>
-                      <p>Loading users...</p>
-                    </div>
-                  ) : inboxUsers.length === 0 ? (
-                    <div className={classes.emptyState}>
-                      <IoMdChatboxes size={48} />
-
-                      <p>No other users found</p>
-                      <p>Start chatting by selecting a user!</p>
-                    </div>
-                  ) : (
-                    inboxUsers.map((person) => (
-                      <div
-                        key={person.userid}
-                        className={classes.conversationItem}
-                        onClick={() => {
-                          handleConversationSelect({
-                            other_user_id: person.userid,
-                            other_username: person.username,
-                            avatar_url: person.avatar_url,
-                            bio: person.bio,
-                            phone: person.phone,
-                            department: person.department,
-                            status: person.status,
-                            last_seen: person.last_seen,
-                            message_count: 0,
-                          });
-
-                          setMobileView("chat");
-                        }}
+                  <div className={m.filterRow}>
+                    {[
+                      { key: "all", label: "All" },
+                      { key: "inbox", label: "Direct" },
+                      { key: "groups", label: "Groups" },
+                    ].map((chip) => (
+                      <button
+                        key={chip.key}
+                        className={`${m.filterChip} ${
+                          activeTab === chip.key ? m.active : ""
+                        }`}
+                        onClick={() => setActiveTab(chip.key)}
                       >
-                        <div className={classes.avatarWrapper}>
-                          {person.avatar_url ? (
-                            <img
-                              src={person.avatar_url}
-                              alt="avatar"
-                              className={classes.avatar}
-                            />
-                          ) : (
-                            <IoMdPerson className={classes.defaultAvatarIcon} />
-                          )}
-                        </div>
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
 
-                        <div className={classes.conversationInfo}>
-                          <h4>{person.username}</h4>
-
-                          <p>
-                            {unreadCount[person?.userid] !== 0 &&
-                              unreadCount[person?.userid]}
-                          </p>
-                        </div>
+                  <div className={m.list}>
+                    {usersLoading || groupsLoading ? (
+                      <div className={m.loading}>
+                        <div className={m.spinner}></div>
+                        <p>Loading conversations...</p>
                       </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {activeTab === "create" && (
-                <CreateGroup onCreateGroup={handleCreateGroup} />
-              )}
-
-              {activeTab === "explore" && (
-                <div className={classes.profilemenu}>
-                  <h3 className={classes.spanforexplore}>Explore</h3>
-                </div>
+                    ) : (
+                    <>
+                      {publicGroupResults.length > 0 &&
+                        (activeTab === "groups" || activeTab === "all") && (
+                          <PublicGroupResults
+                            results={publicGroupResults}
+                            onJoin={(group) => {
+                              handleJoinGroup(group);
+                              setMobileView("chat");
+                            }}
+                            classes={m}
+                          />
+                        )}
+                      {mobileList.length === 0 && publicGroupResults.length === 0 ? (
+                      <div className={m.empty}>
+                        <i className="ti ti-message-off"></i>
+                        <p>
+                          {mobileSearch
+                            ? `No results for "${mobileSearch}"`
+                            : "No conversations yet"}
+                        </p>
+                      </div>
+                    ) : (
+                      mobileList.map((item) =>
+                        item.isGroup ? (
+                          <div
+                            key={`group-${item.id}`}
+                            className={m.row}
+                            onClick={() => {
+                              handleGroupSelect(item);
+                              setMobileView("chat");
+                            }}
+                          >
+                            <div className={m.rowAvatar}>
+                              {item.avatar_url ? (
+                                <img src={item.avatar_url} alt={item.name} />
+                              ) : (
+                                item.name.slice(0, 2).toUpperCase()
+                              )}
+                            </div>
+                            <div className={m.rowBody}>
+                              <div className={m.rowTop}>
+                                <span className={m.rowName}>{item.name}</span>
+                                <span className={m.rowTime}>
+                                  {previewForGroup(item.id, item.member_count).time}
+                                </span>
+                              </div>
+                              <div className={m.rowBottom}>
+                                <span
+                                  className={`${m.rowPreview} ${
+                                    groupUnreadCount[item.id] ? m.unread : ""
+                                  }`}
+                                >
+                                  {previewForGroup(item.id, item.member_count).text}
+                                </span>
+                                {groupUnreadCount[item.id] > 0 && (
+                                  <span className={m.unreadBadge}>
+                                    {groupUnreadCount[item.id]}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            key={item.userid}
+                            className={m.row}
+                            onClick={() => {
+                              handleConversationSelect({
+                                other_user_id: item.userid,
+                                other_username: item.username,
+                                avatar_url: item.avatar_url,
+                                bio: item.bio,
+                                phone: item.phone,
+                                department: item.department,
+                                status: item.status,
+                                last_seen: item.last_seen,
+                                message_count: 0,
+                              });
+                              setMobileView("chat");
+                            }}
+                          >
+                            <div className={m.rowAvatar}>
+                              {item.avatar_url ? (
+                                <img src={item.avatar_url} alt={item.username} />
+                              ) : (
+                                getInitials(item.username)
+                              )}
+                            </div>
+                            <div className={m.rowBody}>
+                              <div className={m.rowTop}>
+                                <span className={m.rowName}>
+                                  {item.username}
+                                </span>
+                                <span className={m.rowTime}>
+                                  {previewFor(item.userid).time}
+                                </span>
+                              </div>
+                              <div className={m.rowBottom}>
+                                <span
+                                  className={`${m.rowPreview} ${
+                                    unreadCount[item.userid] ? m.unread : ""
+                                  }`}
+                                >
+                                  {previewFor(item.userid).text}
+                                </span>
+                                {unreadCount[item.userid] > 0 && (
+                                  <span className={m.unreadBadge}>
+                                    {unreadCount[item.userid]}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ),
+                      )
+                    )}
+                    </>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}
 
-          {/* CHAT SCREEN */}
+          {/* ============ OPEN CHAT ============ */}
 
           {mobileView === "chat" && (
-            <div className={classes.chatArea}>
-              {/* PRIVATE CHAT */}
-              {showProfileForm ? (
-                <div className={classes.profileContainer}>
-                  <div className={classes.profileCard}>
-                    {/* {bander section} */}
-                    <div className={classes.profileBanner}>
-                      <img
-                        src="https://www.uopeople.edu/retention/chat-bot/chatbot-header.webp"
-                        alt=""
-                        className={classes.profileBannerImage}
-                      />
-                    </div>
-
-                    {/* Avatar Section */}
-                    <div className={classes.profileAvatarSection}>
-                      <label>
-                        <div className={classes.profileAvatarWrapper}>
-                          {" "}
-                          {user.avatar_url ? (
-                            <img
-                              src={user.avatar_url}
-                              alt=""
-                              className={classes.profileAvatar}
-                            />
-                          ) : (
-                            <IoMdPerson
-                              className={classes.profileDefaultIcon}
-                            />
-                          )}
-                        </div>
-                        <div className={classes.editIconWrapper}>
-                          {" "}
-                          <img
-                            src={editimage}
-                            alt=""
-                            className={classes.editimage}
-                          />
-                        </div>
-
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={handleAvatarUpload}
-                        />
-                      </label>
-
-                      <h3 className={classes.profileUsername}>
-                        {user.username}
-                      </h3>
-                    </div>
-
-                    {/* Form Section */}
-                    {!showedit && (
-                      <div className={classes.profileDetails}>
-                        <div className={classes.profileInfo}>
-                          <div className={classes.profileInfoTitlefornobio}>
-                            {user.bio ? "" : "Bio"}
-                          </div>
-                          <div
-                            className={classes.profileedit}
-                            onClick={handleEdit}
-                          >
-                            Edit
-                          </div>
-                        </div>
-
-                        <div className={classes.profileInfoContent}>
-                          {user.bio ? (
-                            <div className={classes.internalprofile}>
-                              <div className={classes.profileiconinfo}>
-                                <FiInfo />
-                              </div>
-                              <div className={classes.detailside}>
-                                <div className={classes.bioforprofile}>
-                                  {user.bio}
-                                </div>
-                                <div className={classes.profileInfoTitle}>
-                                  bio
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className={classes.nobioforprofile}>
-                              No bio available.
-                            </div>
-                          )}
-
-                          {user.phone ? (
-                            <div className={classes.internalprofile}>
-                              <div className={classes.profileiconinfo}>
-                                <FiPhone />
-                              </div>
-                              <div className={classes.detailside}>
-                                <div className={classes.phoneforprofile}>
-                                  {user.phone}
-                                </div>
-                                <div className={classes.phoneTitle}>Phone</div>
-                              </div>
-                            </div>
-                          ) : (
-                            ""
-                          )}
-
-                          {user.department ? (
-                            <div className={classes.internalprofile}>
-                              <div className={classes.profileiconinfo}>
-                                <FiBriefcase />
-                              </div>
-                              <div className={classes.detailside}>
-                                <div className={classes.departmentforprofile}>
-                                  {user.department}
-                                </div>
-                                <div className={classes.departmentTitle}>
-                                  Department
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            ""
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {showedit && (
-                      <div className={classes.profileForm}>
-                        <div className={classes.inputGroup}>
-                          <label>Bio</label>
-                          <textarea
-                            placeholder="Write something about yourself..."
-                            value={bio}
-                            onChange={(e) => setBio(e.target.value)}
-                          />
-                        </div>
-
-                        <div className={classes.inputGroup}>
-                          <label>Phone Number</label>
-                          <input
-                            type="text"
-                            placeholder="+251..."
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                          />
-                        </div>
-
-                        <div className={classes.inputGroup}>
-                          <label>Department</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Accouting"
-                            value={department}
-                            onChange={(e) => setDepartment(e.target.value)}
-                          />
-                        </div>
-
-                        {/* Buttons */}
-                        <div className={classes.profileActions}>
-                          <button
-                            className={classes.saveBtn}
-                            onClick={handleSaveProfile}
-                          >
-                            Save Changes
-                          </button>
-
-                          <button
-                            className={classes.cancelBtn}
-                            onClick={() => setShowProfileForm(false)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : selectedConversation ? (
+            <div className={m.chatWrap}>
+              {selectedConversation ? (
                 <PrivateChat
                   key={selectedConversation.other_user_id}
                   conversation={selectedConversation}
@@ -1230,12 +1583,41 @@ const Chat = () => {
                   onClose={() => setMobileView("list")}
                   isMobile={isMobile}
                   setMobileView={setMobileView}
+                  onOpenContact={() => setMobileView("contact")}
+                  onStartCall={(opts) =>
+                    startCall({
+                      receiverId: selectedConversation.other_user_id,
+                      callType: opts?.audioOnly ? "audio" : "video",
+                      title: selectedConversation.other_username,
+                      peer: {
+                        userid: selectedConversation.other_user_id,
+                        username: selectedConversation.other_username,
+                        avatar_url: selectedConversation.avatar_url,
+                      },
+                    })
+                  }
                 />
               ) : selectedGroup ? (
                 <GroupChat
+                  key={selectedGroup.id}
                   group={selectedGroup}
+                  allUsers={allUsers}
+                  cachedMessages={groupMessagesCache[selectedGroup.id]}
+                  onCacheMessages={cacheGroupMessages}
+                  onGroupUpdated={handleGroupUpdated}
+                  onOpenPrivateChat={(member) => {
+                    openPrivateChatWith(member);
+                    setMobileView("chat");
+                  }}
                   setMobileView={setMobileView}
                   isMobile={isMobile}
+                  onStartCall={(opts) =>
+                    startCall({
+                      groupId: selectedGroup.id,
+                      callType: opts?.audioOnly ? "audio" : "video",
+                      title: selectedGroup.name,
+                    })
+                  }
                   onLeaveGroup={() => {
                     setSelectedGroup(null);
                     setMobileView("list");
@@ -1243,256 +1625,156 @@ const Chat = () => {
                   }}
                 />
               ) : (
-                <div className={classes.welcomeScreen}>
-                  <div className={classes.welcomeContent}>
-                    <IoMdChatboxes size={64} />
-                    <h2>Welcome to UoPeople Chat!</h2>
-                    <p>Select a group or conversation to start chatting</p>
-                    <div className={classes.welcomeActions}>
-                      <button
-                        className={classes.primaryButton}
-                        onClick={() => setActiveTab("groups")}
-                      >
-                        Browse Groups
-                      </button>
-                      <button
-                        className={classes.secondaryButton}
-                        onClick={() => setActiveTab("create")}
-                      >
-                        Create Group
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <WelcomePanel username={user.username} />
               )}
             </div>
           )}
 
-          {/* PROFILE SCREEN */}
+          {/* ============ CONTACT INFO (someone else) ============ */}
 
-          {mobileView === "profile" && (
-            <div className={classes.profileContainer}>
-              <div className={classes.profileCard}>
-                {/* BACK BUTTON */}
-                <button
-                  onClick={() => setMobileView("list")}
-                  className={classes.backbuttonforprofile}
-                >
-                  <FiArrowLeft />
-                </button>
+          {mobileView === "contact" && selectedConversation && (
+            <ContactInfo
+              person={{
+                username: selectedConversation.other_username,
+                avatar_url: selectedConversation.avatar_url,
+                bio: selectedConversation.bio,
+                phone: selectedConversation.phone,
+                department: selectedConversation.department,
+                status: selectedConversation.status,
+                last_seen: selectedConversation.last_seen,
+              }}
+              messages={messages}
+              onBack={() => setMobileView("chat")}
+              onMessage={() => setMobileView("chat")}
+              onCall={() =>
+                startCall({
+                  receiverId: selectedConversation.other_user_id,
+                  callType: "audio",
+                  title: selectedConversation.other_username,
+                  peer: {
+                    userid: selectedConversation.other_user_id,
+                    username: selectedConversation.other_username,
+                    avatar_url: selectedConversation.avatar_url,
+                  },
+                })
+              }
+              onVideo={() =>
+                startCall({
+                  receiverId: selectedConversation.other_user_id,
+                  callType: "video",
+                  title: selectedConversation.other_username,
+                  peer: {
+                    userid: selectedConversation.other_user_id,
+                    username: selectedConversation.other_username,
+                    avatar_url: selectedConversation.avatar_url,
+                  },
+                })
+              }
+            />
+          )}
 
-                {/* BANNER */}
-                <div className={classes.profileBanner}>
-                  <img
-                    src="https://www.uopeople.edu/retention/chat-bot/chatbot-header.webp"
-                    alt=""
-                    className={classes.profileBannerImage}
-                  />
-                </div>
+          {/* ============ CALLS TAB ============ */}
 
-                {/* AVATAR */}
-                <div className={classes.profileAvatarSection}>
-                  <label>
-                    <div className={classes.profileAvatarWrapper}>
-                      {user.avatar_url ? (
-                        <img
-                          src={user.avatar_url}
-                          alt=""
-                          className={classes.profileAvatar}
-                        />
-                      ) : (
-                        <IoMdPerson className={classes.profileDefaultIcon} />
-                      )}
-                    </div>
+          {mobileView === "calls" && (
+            <div className={m.mobileScreen}>
+              <header className={m.inboxHeader}>
+                <div className={m.logoBox}>U</div>
+                <h1 className={m.inboxTitle}>Calls</h1>
+              </header>
 
-                    <input
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={handleAvatarUpload}
-                    />
-                  </label>
-
-                  <h3>{user.username}</h3>
-                </div>
-
-                {/* PROFILE DETAILS */}
-                {!showedit && (
-                  <div className={classes.profileDetails}>
-                    <div className={classes.profileInfo}>
-                      <div className={classes.profileInfoTitlefornobio}>
-                        {user.bio ? "" : "Bio"}
-                      </div>
-                      <div className={classes.profileedit} onClick={handleEdit}>
-                        Edit
-                      </div>
-                    </div>
-
-                    <div className={classes.profileInfoContent}>
-                      {user.bio ? (
-                        <div className={classes.internalprofile}>
-                          <div className={classes.profileiconinfo}>
-                            <FiInfo />
-                          </div>
-                          <div className={classes.detailside}>
-                            <div className={classes.bioforprofile}>
-                              {user.bio}
-                            </div>
-                            <div className={classes.profileInfoTitle}>bio</div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className={classes.nobioforprofile}>
-                          No bio available.
-                        </div>
-                      )}
-
-                      {user.phone ? (
-                        <div className={classes.internalprofile}>
-                          <div className={classes.profileiconinfo}>
-                            <FiPhone />
-                          </div>
-                          <div className={classes.detailside}>
-                            <div className={classes.phoneforprofile}>
-                              {user.phone}
-                            </div>
-                            <div className={classes.phoneTitle}>Phone</div>
-                          </div>
-                        </div>
-                      ) : (
-                        ""
-                      )}
-
-                      {user.department ? (
-                        <div className={classes.internalprofile}>
-                          <div className={classes.profileiconinfo}>
-                            <FiBriefcase />
-                          </div>
-                          <div className={classes.detailside}>
-                            <div className={classes.departmentforprofile}>
-                              {user.department}
-                            </div>
-                            <div className={classes.departmentTitle}>
-                              Department
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        ""
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {showedit && (
-                  <div className={classes.profileForm}>
-                    <div className={classes.inputGroup}>
-                      <label>Bio</label>
-                      <textarea
-                        placeholder="Write something about yourself..."
-                        value={bio}
-                        onChange={(e) => setBio(e.target.value)}
-                      />
-                    </div>
-
-                    <div className={classes.inputGroup}>
-                      <label>Phone Number</label>
-                      <input
-                        type="text"
-                        placeholder="+251..."
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                      />
-                    </div>
-
-                    <div className={classes.inputGroup}>
-                      <label>Department</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Accouting"
-                        value={department}
-                        onChange={(e) => setDepartment(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Buttons */}
-                    <div className={classes.profileActions}>
-                      <button
-                        className={classes.saveBtn}
-                        onClick={handleSaveProfile}
-                      >
-                        Save Changes
-                      </button>
-
-                      <button
-                        className={classes.cancelBtn}
-                        onClick={() => setShowProfileForm(false)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <CallsList selfId={user.userid} />
             </div>
           )}
 
-          {/* MOBILE BOTTOM NAVIGATION */}
+          {/* ============ MY PROFILE ============ */}
 
-          {mobileView !== "chat" && mobileView !== "profile" && (
-            <div className={classes.mobileBottomNav}>
-              <button
-                className={`${classes.mobileNavButton} ${
-                  activeTab === "groups" ? classes.active : ""
-                }`}
-                onClick={() => {
-                  setActiveTab("groups");
-                  setMobileView("list");
-                }}
-              >
-                <IoMdPeople />
-                <span>Groups</span>
-              </button>
+          {mobileView === "profile" && (
+            <>
+              <ContactInfo
+                person={user}
+                isSelf
+                onEdit={handleEdit}
+                onCall={() => fileInputRef.current?.click()}
+                onVideo={() => fileInputRef.current?.click()}
+                onMore={handleEdit}
+              />
 
-              <button
-                className={`${classes.mobileNavButton} ${
-                  activeTab === "explore" ? classes.active : ""
-                }`}
-                onClick={() => {
-                  setActiveTab("explore");
-                  setMobileView("list");
-                }}
-              >
-                <IoMdCompass />
-                <span>Explore</span>
-              </button>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={handleAvatarUpload}
+              />
 
-              <button
-                className={`${classes.mobileNavButton} ${
-                  activeTab === "inbox" ? classes.active : ""
-                }`}
-                onClick={() => {
-                  setActiveTab("inbox");
-                  setMobileView("list");
-                }}
-              >
-                <IoMdPerson />
-                <span>Inbox</span>
-              </button>
+              {showedit && (
+                <div className={m.formSection}>
+                  <div className={m.formField}>
+                    <label className={m.formLabel}>Bio</label>
+                    <textarea
+                      className={m.formTextarea}
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="Tell people a little about yourself"
+                    />
+                  </div>
 
-              <button
-                className={`${classes.mobileNavButton} ${
-                  activeTab === "create" ? classes.active : ""
-                }`}
-                onClick={() => {
-                  setActiveTab("create");
-                  setMobileView("list");
-                }}
-              >
-                <BsPlusCircle />
-                <span>Create</span>
-              </button>
-            </div>
+                  <div className={m.formField}>
+                    <label className={m.formLabel}>Phone</label>
+                    <input
+                      className={m.formInput}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Phone number"
+                    />
+                  </div>
+
+                  <div className={m.formField}>
+                    <label className={m.formLabel}>Department</label>
+                    <input
+                      className={m.formInput}
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      placeholder="Department"
+                    />
+                  </div>
+
+                  <div className={m.formActions}>
+                    <button className={m.btnPrimary} onClick={handleSaveProfile}>
+                      Save changes
+                    </button>
+                    <button
+                      className={m.btnGhost}
+                      onClick={() => setshowedit(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ============ BOTTOM TAB BAR ============ */}
+
+          {!activeCall && (
+            <nav className={m.tabBar}>
+              {mobileTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  className={`${m.tabButton} ${
+                    activeMobileTab === tab.key ? m.active : ""
+                  }`}
+                  onClick={tab.onClick}
+                >
+                  <i className={`ti ${tab.icon}`}></i>
+                  <span>{tab.label}</span>
+                  {tab.badge > 0 && (
+                    <span className={m.tabBadge}>{tab.badge}</span>
+                  )}
+                </button>
+              ))}
+            </nav>
           )}
         </>
       )}

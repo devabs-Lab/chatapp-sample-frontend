@@ -3,11 +3,11 @@
    ════════════════════════════════════════════════════════════ */
 
 .profileSidebar {
-  width: 218px;
-  min-width: 218px;
-  max-width: 218px;
-  background: var(--wh);
-  border-left: 1px solid var(--bdr);
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--panel-line);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -267,4 +267,663 @@
 
 .profileInput:focus {
   border-color: var(--m);
+}
+
+/* === Group info panel (GroupInfoSidebar) === */
+
+.groupUsername {
+  font-size: 12px;
+  color: var(--m);
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+
+.groupHint {
+  font-size: 11px;
+  color: var(--plum-lt);
+  margin: 6px 0 0;
+  line-height: 1.45;
+}
+
+/* "admin" / "owner" next to a person, the way Telegram labels standing
+   inside a group — never on the conversation list. */
+.roleTag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
+  color: var(--m);
+  background: var(--m-soft, rgba(145, 0, 108, 0.12));
+  padding: 2px 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.memberList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.memberRow:hover {
+  background: var(--inbox-row-hover, rgba(0, 0, 0, 0.04));
+}
+
+.memberName {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--plum);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inviteRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.inviteLink {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--plum);
+  background: var(--inbox-field, rgba(0, 0, 0, 0.04));
+  border-radius: 6px;
+  padding: 6px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inviteBtn {
+  border: 0;
+  background: var(--inbox-field, rgba(0, 0, 0, 0.04));
+  color: var(--m);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s ease;
+}
+
+.inviteBtn:hover {
+  background: var(--m);
+  color: var(--wh);
+}
+
+.groupActionButton {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--plum);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.groupActionButton:hover {
+  background: var(--m);
+  border-color: var(--m);
+  color: var(--wh);
+}
+
+.groupActionButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.groupActionButton.danger {
+  color: #b3261e;
+}
+
+.groupActionButton.danger:hover {
+  background: #b3261e;
+  border-color: #b3261e;
+  color: var(--wh);
+}
+
+/* === Group edit form, settings toggles, photo === */
+
+.editForm {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+  text-align: left;
+}
+
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--plum-lt);
+}
+
+.field {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid var(--bdr);
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--plum);
+  background: var(--wh);
+  outline: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  resize: vertical;
+}
+
+.field:focus {
+  border-color: var(--m);
+  box-shadow: 0 0 0 3px var(--m-soft, rgba(145, 0, 108, 0.12));
+}
+
+/* The @ sits inside the field so the handle reads as a handle. */
+.fieldWithPrefix {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.fieldPrefix {
+  position: absolute;
+  left: 11px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plum-lt);
+  pointer-events: none;
+}
+
+.fieldWithPrefix .field {
+  padding-left: 24px;
+}
+
+.fieldHint {
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--plum-lt);
+}
+
+.formActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.formSave,
+.formCancel {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+
+.formSave {
+  background: var(--m);
+  color: var(--wh);
+}
+
+.formSave:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.formCancel {
+  background: transparent;
+  border-color: var(--bdr);
+  color: var(--plum);
+}
+
+.formCancel:hover {
+  background: var(--lav);
+}
+
+/* Camera badge over the group photo, admin only */
+.photoOverlay {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--m);
+  color: var(--wh);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--wh);
+}
+
+.settingsGroup {
+  width: 100%;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--plum);
+  cursor: pointer;
+  text-align: left;
+}
+
+.toggleRow > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.toggleRow input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--m);
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: pointer;
+}
+
+.toggleHint {
+  font-size: 11px;
+  color: var(--plum-lt);
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+/* === Group photo: expanded header and full-screen viewer === */
+
+/* The middle state — the photo fills the top of the panel with the name
+   laid over its lower edge, as Telegram does when you tap the avatar. */
+.photoHeader {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 320px;
+  overflow: hidden;
+  cursor: zoom-in;
+  flex-shrink: 0;
+  background: var(--lav);
+}
+
+.photoHeader img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* A scrim so the caption stays readable over a light photo. */
+.photoHeaderCaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 26px 16px 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), transparent);
+  color: #fff;
+  pointer-events: none;
+}
+
+.photoHeaderCaption h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.photoHeaderCaption span {
+  font-size: 12.5px;
+  opacity: 0.85;
+}
+
+.photoHeaderCollapse {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.photoHeaderCollapse:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.photoViewer {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.photoViewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.photoViewerClose {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.photoViewerClose:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+/* The camera badge is now its own button (changing the photo is separate
+   from viewing it), so it needs button resets. */
+.photoOverlay {
+  border: 2px solid var(--wh);
+  padding: 0;
+  cursor: pointer;
+}
+
+/* === Group photo, large === */
+
+/* Deliberately NOT reusing .profileAvatar: that one is a 56px circle with a
+   solid #7B3F9E background, and InitialsAvatar renders only 40px inside it,
+   so the background showed as a purple ring around every group photo. This
+   has no background of its own and the image fills it edge to edge. */
+.groupPhoto {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  margin: 4px auto 14px;
+  background: transparent;
+  flex-shrink: 0;
+  /* No `overflow: hidden` here — it clipped the camera badge, which sits
+     deliberately on the circle's edge. The photo is rounded by the rule
+     below instead. */
+}
+
+/* InitialsAvatar sizes itself from a fixed map (lg = 40px), so it has to be
+   told to fill this larger frame. Excluding the camera badge: it's a direct
+   child too, and without the :not() it was stretched to fill the whole
+   circle instead of sitting in the corner. */
+.groupPhoto > *:not(.groupPhotoCamera) {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  font-size: 44px !important;
+}
+
+.groupPhoto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.groupPhotoClickable {
+  cursor: pointer;
+}
+
+.groupPhotoCamera {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--m);
+  color: var(--wh);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--wh);
+  cursor: pointer;
+  padding: 0;
+  z-index: 2;
+}
+
+.groupPhotoCamera:hover {
+  filter: brightness(1.1);
+}
+
+/* Bigger, calmer type for the group's own screen — the shared .profileName
+   is 14px, which looked lost under a 132px photo. */
+.groupTitle {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--plum);
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.groupSubtitle {
+  font-size: 13px;
+  color: var(--plum-lt);
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+/* === Edit screen === */
+
+.editScreen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 16px 24px;
+  overflow-y: auto;
+}
+
+/* Each group of fields reads as its own card, the way settings screens in
+   Telegram separate sections. */
+.editCard {
+  background: var(--inbox-field, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--bdr);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.editCardTitle {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--plum-lt);
+  margin: 0 0 -4px 2px;
+}
+
+.editField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.editFieldLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--plum-lt);
+  margin-left: 2px;
+}
+
+.editInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  border: 1.5px solid var(--bdr);
+  border-radius: 11px;
+  background: var(--wh);
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--plum);
+  outline: none;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+  resize: vertical;
+}
+
+.editInput:focus {
+  border-color: var(--m);
+  box-shadow: 0 0 0 3.5px var(--m-soft, rgba(145, 0, 108, 0.13));
+}
+
+.editInputWithPrefix {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.editPrefix {
+  position: absolute;
+  left: 13px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plum-lt);
+  pointer-events: none;
+}
+
+.editInputWithPrefix .editInput {
+  padding-left: 27px;
+}
+
+.editHintRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-left: 2px;
+}
+
+.editHint {
+  font-size: 11px;
+  color: var(--plum-lt);
+  line-height: 1.45;
+}
+
+.editCounter {
+  font-size: 11px;
+  color: var(--plum-lt);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.editActionsBar {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.editPrimary,
+.editSecondary {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 11px;
+  border: 1.5px solid transparent;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.12s ease, background 0.12s ease;
+}
+
+.editPrimary {
+  background: var(--m);
+  color: var(--wh);
+  box-shadow: 0 3px 12px rgba(145, 0, 108, 0.28);
+}
+
+.editPrimary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.editPrimary:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
+.editSecondary {
+  background: transparent;
+  border-color: var(--bdr);
+  color: var(--plum);
+}
+
+.editSecondary:hover {
+  background: var(--lav);
 }

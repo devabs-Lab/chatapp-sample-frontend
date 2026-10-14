@@ -1,0 +1,183 @@
+/* =========================================================
+   CALL HISTORY
+
+   Reads the same semantic tokens as the conversation column
+   so it themes with everything else. Rows deliberately use
+   the inbox hairline (--inbox-row-line) — the user has twice
+   asked for those dividers to stay near-invisible.
+   ========================================================= */
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--inbox-bg);
+}
+
+/* the desktop column already has its own padding rhythm */
+.list.desktop .row {
+  padding: 11px 14px;
+}
+
+.row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--inbox-row-line);
+  transition: background 0.12s ease;
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row:hover {
+  background: var(--inbox-row-hover);
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: var(--m);
+  color: var(--wh);
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.name {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--plum);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.name.missed {
+  color: #c0392b;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--plum-mid);
+}
+
+.missedIcon {
+  color: #c0392b;
+}
+
+.right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.time {
+  font-size: 12px;
+  color: var(--plum-mid);
+}
+
+.kindIcon {
+  font-size: 16px;
+  color: var(--m);
+}
+
+/* ---------------------------------------------------------
+   Empty / loading / error
+   --------------------------------------------------------- */
+
+.state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  color: var(--plum-mid);
+  text-align: center;
+  background: var(--inbox-bg);
+}
+
+.state i {
+  font-size: 32px;
+  color: var(--plum-lt);
+}
+
+.state p {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--plum);
+}
+
+.hint {
+  font-size: 13px;
+  max-width: 260px;
+}
+
+.retry {
+  margin-top: 4px;
+  border: 1px solid var(--bdr);
+  background: var(--wh);
+  color: var(--m);
+  border-radius: 9px;
+  padding: 7px 16px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid var(--lav);
+  border-top-color: var(--m);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}

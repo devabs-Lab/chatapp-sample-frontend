@@ -17,16 +17,117 @@ html, body, #root {
 :root {
   --m:         #91006C;
   --m-dk:      #6B0050;
+  --m-deep:    #4D0239;
+  --m-deep-hv: #5B1447;   /* sidebar row hover */
+  --m-deep-hi: #662252;   /* sidebar row active/focused */
+  --blush:     #F7F0F6;   /* inbox / chat / profile ground on deep */
+  --blush-hi:  #DEC8DA;   /* row hover on that ground */
   --m-pale:    #FAF0F7;
   --m-soft:    #EFD6EA;
+
+  /* text/icon colours for use on the deep magenta sidebar */
+  --on-deep:      #F6ECF3;
+  --on-deep-mute: rgba(246, 236, 243, 0.62);
+  --on-deep-hover: rgba(255, 255, 255, 0.10);
+  --on-deep-line:  rgba(255, 255, 255, 0.13);
   --plum:      #4A335D;
   --plum-lt:   #7B5E94;
+  /* muted text that still passes AA on the lavender surfaces */
+  --plum-mid:  #64497C;
   --lav:       #ECDCE9;
   --lav-dk:    #D4B8CE;
   --lav-pale:  #F8F3F7;
   --wh:        #FFFFFF;
   --bdr:       #E0D0DC;
   --grn:       #2EBD85;
+
+  /* ----------------------------------------------------------------
+     SEMANTIC SURFACE TOKENS
+
+     Everything chrome-related reads these rather than a raw colour,
+     so switching theme is only a matter of redefining them below.
+     Default (no data-theme, or data-theme="deep") = deep sidebar.
+     ---------------------------------------------------------------- */
+
+  /* left nav rail */
+  --rail-bg:          var(--m-deep);
+  --rail-text:        var(--on-deep);
+  --rail-mute:        var(--on-deep-mute);
+  --rail-hover:       var(--m-deep-hv);
+  --rail-line:        var(--on-deep-line);
+  --rail-field:       rgba(255, 255, 255, 0.09);
+  --rail-field-focus: rgba(255, 255, 255, 0.15);
+  --rail-field-brdr:  rgba(255, 255, 255, 0.28);
+  --rail-field-line:  transparent;
+  --rail-active-line: transparent;
+  --rail-active-bg:   var(--m-deep-hi);
+  --rail-active-text: var(--wh);
+  --rail-badge-bg:    var(--m);
+  --rail-badge-text:  var(--wh);
+  --rail-dot-off:     rgba(255, 255, 255, 0.30);
+
+  /* logo tile: pale box, letter in the sidebar colour */
+  --logo-bg:          var(--lav);
+  --logo-text:        var(--m-deep);
+
+  /* conversation list column */
+  --inbox-bg:         var(--blush);
+  --inbox-line:       #E7D9E4;
+  --inbox-field:      rgba(255, 255, 255, 0.75);
+  --inbox-row-hover:  var(--lav);
+  --inbox-row-sel:    var(--blush-hi);
+  /* hairline between conversation rows — low alpha so it works on
+     either inbox ground and stays barely perceptible */
+  --inbox-row-line:   rgba(74, 51, 93, 0.07);
+  --inbox-mute:       var(--plum-mid);
+
+  /* message area behind the bubbles */
+  --chat-ground:      var(--blush);
+  --chat-mute:        var(--plum-mid);
+
+  /* right-hand profile panel */
+  --panel-bg:         var(--blush);
+  --panel-line:       #E7D9E4;
+}
+
+/* ------------------------------------------------------------------
+   CLASSIC THEME — the earlier light look: white rail, pale-pink
+   surfaces. Selected with <html data-theme="classic">.
+   ------------------------------------------------------------------ */
+:root[data-theme="classic"] {
+  --rail-bg:          #F7F3F7;
+  --rail-text:        var(--plum);
+  --rail-mute:        var(--plum-lt);
+  --rail-hover:       var(--wh);
+  --rail-line:        var(--bdr);
+  --rail-field:       var(--wh);
+  --rail-field-focus: var(--wh);
+  --rail-field-brdr:  var(--m);
+  /* both outlines are hairlines — present, not obvious */
+  --rail-field-line:  #F0E9EF;
+  --rail-active-line: #F3EDF2;
+  --rail-active-bg:   var(--wh);
+  --rail-active-text: var(--m);
+  --rail-badge-bg:    var(--m);
+  --rail-badge-text:  var(--wh);
+  --rail-dot-off:     var(--lav-dk);
+
+  --logo-bg:          var(--m);
+  --logo-text:        var(--wh);
+
+  --inbox-bg:         var(--wh);
+  --inbox-line:       var(--bdr);
+  --inbox-field:      var(--lav-pale);
+  --inbox-row-hover:  var(--lav-pale);
+  --inbox-row-sel:    var(--m-pale);
+  --inbox-row-line:   rgba(74, 51, 93, 0.07);
+  --inbox-mute:       var(--plum-lt);
+
+  --chat-ground:      #F7F3F7;
+  --chat-mute:        var(--plum-lt);
+
+  --panel-bg:         var(--wh);
+  --panel-line:       var(--bdr);
 }
 
 @keyframes spin {

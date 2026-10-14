@@ -29,6 +29,9 @@ export const ChatProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [messagesCache, setMessagesCache] = useState({});
   const [unreadCount, setUnreadCount] = useState({});
+  /* Newest message per conversation, keyed by the other user's id.
+     Drives the preview line in the inbox list. */
+  const [lastMessages, setLastMessages] = useState({});
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const mergeUniqueById = (arr, prev = []) => {
@@ -39,6 +42,53 @@ export const ChatProvider = ({ children }) => {
         new Date(a.delivered_at || a.created_at || 0) -
         new Date(b.delivered_at || b.created_at || 0),
     );
+  };
+
+  /* Record a conversation's newest message. Older messages are ignored so
+     an out-of-order socket event cannot roll the preview backwards. */
+  const setLastMessage = (other_user_id, message) => {
+    if (!other_user_id || !message) return;
+    const stamp = new Date(
+      message.delivered_at || message.created_at || Date.now(),
+    ).getTime();
+
+    setLastMessages((prev) => {
+      const current = prev[other_user_id];
+      if (current && current._t > stamp) return prev;
+      return {
+        ...prev,
+        [other_user_id]: {
+          content: message.content,
+          message_type: message.message_type || "text",
+          filename: message.filename,
+          sender_id: message.sender_id,
+          time: message.delivered_at || message.created_at || null,
+          _t: stamp,
+        },
+      };
+    });
+  };
+
+  /* Seed previews from GET /messages/conversations on load. */
+  const seedLastMessages = (conversations = []) => {
+    setLastMessages((prev) => {
+      const next = { ...prev };
+      conversations.forEach((c) => {
+        if (!c.other_user_id) return;
+        const stamp = new Date(c.last_message_time || 0).getTime();
+        const current = next[c.other_user_id];
+        if (current && current._t >= stamp) return;
+        next[c.other_user_id] = {
+          content: c.last_message,
+          message_type: c.last_message_type || "text",
+          filename: c.last_message_filename,
+          sender_id: c.last_message_sender_id,
+          time: c.last_message_time,
+          _t: stamp,
+        };
+      });
+      return next;
+    });
   };
 
   const updateCache = (other_user_id, newMessage) => {
@@ -106,6 +156,8 @@ export const ChatProvider = ({ children }) => {
         message.sender_id === user.userid
           ? message.receiver_id
           : message.sender_id;
+
+      setLastMessage(otherUserId, message);
 
       const belongsToCurrentChat =
         otherUserId === selectedConversation?.other_user_id;
@@ -450,6 +502,9 @@ export const ChatProvider = ({ children }) => {
     setMessagesCache,
     unreadCount,
     setUnreadCount,
+    lastMessages,
+    setLastMessage,
+    seedLastMessages,
     selectedConversation,
     setSelectedConversation,
     // Refs

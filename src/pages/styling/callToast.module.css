@@ -1,0 +1,46 @@
+/* Small transient notice for call outcomes — "Call declined.", "Call ended."
+   A modal would be wrong here: the call is already over and there is nothing
+   to decide. */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 34px;
+  transform: translateX(-50%);
+  z-index: 1200;
+
+  max-width: min(90vw, 360px);
+  padding: 11px 20px;
+  border-radius: 11px;
+  background: #1d1327;
+  border: 1px solid #2f2139;
+  color: #f4ecf7;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  text-align: center;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  animation: rise 0.22s ease-out;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .toast {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}

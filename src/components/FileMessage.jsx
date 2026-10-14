@@ -2,8 +2,9 @@ import React from "react";
 import classes from "../pages/styling/chat.module.css";
 import chatAreaClasses from "../pages/styling/chatArea.module.css";
 import { getAuthenticatedFileUrl } from "../utils/mediaUtils.js";
+import InitialsAvatar from "./InitialsAvatar";
 
-export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
+export const FileMessage = ({ message, user, onDownloadClick, onCancel, onAvatarClick, showSenderName = false }) => {
   const formatFileSize = (bytes) => {
     if (!bytes && bytes !== 0) return "";
 
@@ -151,7 +152,7 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
         isOwnMessage ? chatAreaClasses.ownMessage : ""
       }`}
     >
-      {/* Avatar column */}
+      {/* Avatar column — clicking the other person's avatar opens their profile */}
       <div className={chatAreaClasses.avatarWrapper}>
         <InitialsAvatar
           name={isOwnMessage ? user.username : message.sender_username}
@@ -160,17 +161,17 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
           status="none"
           backgroundColor={isOwnMessage ? "var(--lav)" : undefined}
           color={isOwnMessage ? "var(--m-dk)" : undefined}
+          onClick={!isOwnMessage ? onAvatarClick : undefined}
         />
       </div>
 
       {/* Bubble + text column */}
       <div className={chatAreaClasses.messageContent}>
-        {!isOwnMessage && (
+        {showSenderName && !isOwnMessage && (
           <span className={chatAreaClasses.messageSender}>
             {message.sender_username}
           </span>
         )}
-
         {/* File Attachment Bubble */}
         <div className={chatAreaClasses.fileAttachmentBubble} onClick={handleOpen} style={{ cursor: "pointer" }}>
           <div className={chatAreaClasses.fileIconBox}>
@@ -189,7 +190,7 @@ export const FileMessage = ({ message, user, onDownloadClick, onCancel }) => {
           {isOwnMessage && (
             <span style={{ marginLeft: "4px" }}>
               {message.status === "pending"
-                ? "..."
+                ? pendingSpinner(80)
                 : message.is_read
                   ? " · ✓✓"
                   : " · ✓"}

@@ -72,6 +72,8 @@ const PrivateChat = ({
   onSaveScroll,
   setMobileView,
   isMobile,
+  onOpenContact,
+  onStartCall,
 }) => {
   const {
     messages,
@@ -88,6 +90,7 @@ const PrivateChat = ({
     replaceCache,
     setUnreadCount,
     unreadCount,
+    setLastMessage,
   } = useChatContext();
 
   const { user } = useContext(Appstate);
@@ -109,6 +112,26 @@ const PrivateChat = ({
 
   const loadedImageIdsRef = useRef(new Set());
   const lastPrependAtRef = useRef(0);
+  /* Restoring the saved scroll position must happen exactly once per time
+     this chat is opened — not on every `savedScroll` update, since that prop
+     is also how the user's own live scrolling gets reported back up (via
+     onSaveScroll in handleScroll). Without this guard, every scroll tick
+     round-trips through parent state and back down as a new `savedScroll`,
+     re-running this effect and snapping scrollTop to whatever value that
+     round trip last captured — a render or two behind the real, live
+     scrollTop — which fights the user's own scroll gesture and makes
+     scrolling up through older messages feel broken. */
+  const initialScrollRestoredRef = useRef(false);
+  /* Guards against overlapping "load older messages" requests. Without it,
+     a fling/momentum scroll that leaves the container sitting at scrollTop
+     0 across several scroll events could fire fetchMessages(false, true)
+     more than once before the first request resolved — same offset (read
+     from `messages.length`, which hadn't changed yet), so a duplicate
+     fetch, and whichever response's `scrollRestoreRef` write landed last
+     wins even if it doesn't correspond to what actually got prepended.
+     That race — not something wrong with the restore logic itself — is
+     the most likely reason the scroll jump only showed up sometimes. */
+  const isLoadingOlderRef = useRef(false);
   // const imageLoadTimeoutRef = useRef(null);
   const isInitialLoadRef = useRef(true); // Track if this is the very first load
   const isRestoringScrollRef = useRef(false);
@@ -202,19 +225,27 @@ const PrivateChat = ({
 
     if (scrollRestoreRef.current) {
       const { prevHeight } = scrollRestoreRef.current;
-      // console.log(prevHeight);
-      // console.log(container.scrollHeight);
-      setTimeout(() => {
-        const delta = container.scrollHeight - prevHeight;
-        // console.log(delta);
-        container.scrollTop = delta; // keep the same messages at same place
-        // console.log(container.scrollTop);
-        onSaveScroll(conversation.other_user_id, container.scrollTop);
-      }, 300);
+      /* This has to happen synchronously, in this same layout-effect pass —
+         that's the entire reason to use useLayoutEffect instead of
+         useEffect here: it runs after the DOM has the new (taller) content
+         but before the browser paints, so setting scrollTop here is
+         invisible to the user. The previous 300ms setTimeout threw that
+         guarantee away: the browser painted the new content against the
+         *old* scrollTop first (visibly jumping to whatever ended up at the
+         top), then snapped to the correct position 300ms later — that
+         two-step jump was the "motion" in the message area. */
+      const delta = container.scrollHeight - prevHeight;
+      container.scrollTop = delta; // keep the same messages at same place
+      onSaveScroll(conversation.other_user_id, container.scrollTop);
       scrollRestoreRef.current = null;
       return;
-    } else if (savedScroll !== null && !pendingAutoScrollRef.current) {
+    } else if (
+      !initialScrollRestoredRef.current &&
+      savedScroll !== null &&
+      !pendingAutoScrollRef.current
+    ) {
       isRestoringScrollRef.current = true;
+      initialScrollRestoredRef.current = true;
 
       // const container = chatContainerRef.current;
       // if (!container) return;
@@ -409,14 +440,21 @@ const PrivateChat = ({
       observeAllMessages();
     }, 50);
 
-    const onScroll = () => observeAllMessages();
-
-    container.addEventListener("scroll", onScroll);
+    /* observeAllMessages() used to also re-run on every native "scroll"
+       event — container.querySelectorAll("[data-id]") followed by a
+       getBoundingClientRect() per message, on every scroll tick. That is
+       O(message count) synchronous layout work per tick, and on a
+       conversation with many messages it was heavy enough to make
+       scrolling itself feel broken/stuck. It was also redundant: an
+       IntersectionObserver's entire purpose is to report visibility
+       changes as they happen without any scroll-event polling — the
+       observer set up above (and re-armed whenever `messages` changes,
+       since this whole effect re-runs then) already does the job this
+       scroll listener was duplicating. */
 
     return () => {
       clearTimeout(timeout);
       observerRef.current.disconnect();
-      container.removeEventListener("scroll", onScroll);
     };
 
     // const nodes = container.querySelectorAll("[data-id]");
@@ -484,9 +522,22 @@ const PrivateChat = ({
       return;
     }
 
+    if (prepend) {
+      if (isLoadingOlderRef.current) return; // a request is already in flight
+      isLoadingOlderRef.current = true;
+    }
+
     if (initial) {
       setLoading(true);
     }
+
+    /* Captured here, before the request goes out, rather than after it
+       resolves — the closer this reads to the moment the user actually hit
+       the top, the less chance anything else (a socket message arriving,
+       an image finishing loading) shifts the layout in between and makes
+       the eventual delta wrong. */
+    const prependContainer = prepend ? chatContainerRef.current : null;
+    const prevHeightAtRequest = prependContainer?.scrollHeight ?? null;
 
     // if (!token || !cryptoKey) return;
 
@@ -561,11 +612,8 @@ const PrivateChat = ({
         hydratedChatsRef.current[conversation.other_user_id] = true;
       } else if (prepend) {
         if (response.data.length === 0) return;
-        const container = chatContainerRef.current;
-
-        const prevHeight = container.scrollHeight;
         setMessages((prev) => mergeUniqueById([...response.data, ...prev]));
-        scrollRestoreRef.current = { prevHeight };
+        scrollRestoreRef.current = { prevHeight: prevHeightAtRequest };
         lastPrependAtRef.current = Date.now();
       }
 
@@ -598,37 +646,54 @@ const PrivateChat = ({
         hydratedChatsRef.current[conversation.other_user_id] = true;
       }
       setLoading(false);
+    } finally {
+      if (prepend) isLoadingOlderRef.current = false;
     }
   };
 
+  /* The native scroll event can fire far faster than React needs to react
+     to it (every pixel, on a fast trackpad/wheel gesture). Each call here
+     writes to parent state (onSaveScroll), which re-renders Chat.jsx and,
+     on a conversation with many messages, adds up to real per-frame cost —
+     on top of what the scroll itself already costs the browser. Capping
+     this to once per animation frame (rAF naturally coalesces multiple
+     scroll events that land in the same frame into one) keeps that work
+     from competing with the scroll itself. */
+  const scrollFrameRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (scrollFrameRef.current) cancelAnimationFrame(scrollFrameRef.current);
+    };
+  }, []);
+
   const handleScroll = () => {
-    if (!chatContainerRef.current) return;
+    if (scrollFrameRef.current) return;
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const container = chatContainerRef.current;
+      if (!container) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-    const atBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 5;
-    setIsAtBottom(atBottom);
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const atBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 5;
+      setIsAtBottom(atBottom);
 
-    atBottomRef.current = atBottom;
+      atBottomRef.current = atBottom;
 
-    // console.log(pendingAutoScrollRef.current);
-    // console.log(!scrollRestoreRef.current);
-    // console.log(scrollRestoreRef);
-    // console.log(scrollTop);
-    // console.log(savedScroll);
+      if (!scrollRestoreRef.current) {
+        onSaveScroll(conversation.other_user_id, scrollTop);
+      }
 
-    if (!scrollRestoreRef.current) {
-      onSaveScroll(conversation.other_user_id, scrollTop);
-    }
+      if (scrollTop === 0) {
+        fetchMessages(false, true); // load older
+      }
 
-    if (scrollTop === 0) {
-      fetchMessages(false, true); // load older
-    }
-
-    if (atBottom)
-      setUnreadCount((prev) => ({
-        ...prev,
-        [conversation.other_user_id]: 0,
-      }));
+      if (atBottom)
+        setUnreadCount((prev) => ({
+          ...prev,
+          [conversation.other_user_id]: 0,
+        }));
+    });
   };
 
   const handleSendMessage = async (e) => {
@@ -653,6 +718,7 @@ const PrivateChat = ({
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
+    setLastMessage(conversation.other_user_id, optimisticMessage);
     if (!pendingMessagesRef.current[conversation.other_user_id]) {
       pendingMessagesRef.current[conversation.other_user_id] = [];
     }
@@ -705,6 +771,16 @@ const PrivateChat = ({
     } else {
       textarea.style.height = "150px"; // max height
       textarea.scrollTop = textarea.scrollHeight; // scroll inside
+    }
+  };
+
+  /* Enter sends; Shift+Enter inserts a newline. A plain <textarea> does the
+     opposite by default (Enter always inserts a newline, and there is no
+     built-in way to submit on it), so this has to be handled explicitly. */
+  const handleComposerKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
@@ -959,6 +1035,7 @@ const PrivateChat = ({
       // Add optimistic message if it exists
       if (optimisticMessage) {
         setMessages((prev) => [...prev, optimisticMessage]);
+        setLastMessage(conversation.other_user_id, optimisticMessage);
         pendingAutoScrollRef.current = true;
         if (!pendingMessagesRef.current[conversation.other_user_id]) {
           pendingMessagesRef.current[conversation.other_user_id] = [];
@@ -1009,6 +1086,12 @@ const PrivateChat = ({
     setshowotherprofile((prev) => !prev);
   };
 
+  /* On mobile the profile is its own screen rather than a side panel. */
+  const openProfile = () => {
+    if (isMobile && onOpenContact) onOpenContact();
+    else handleotherprofiledetail();
+  };
+
   const formatFileSize = (bytes) => {
     if (!bytes && bytes !== 0) return "";
 
@@ -1042,18 +1125,18 @@ const PrivateChat = ({
               </button>
             )}
             
-            <div onClick={handleotherprofiledetail} style={{cursor: "pointer"}}>
-              <InitialsAvatar 
-                name={conversation.other_username} 
-                imageUrl={conversation.avatar_url} 
-                size="md" 
-                status="none" 
+            <div onClick={openProfile} style={{cursor: "pointer"}}>
+              <InitialsAvatar
+                name={conversation.other_username}
+                imageUrl={conversation.avatar_url}
+                size="md"
+                status="none"
               />
             </div>
 
             <div
               className={chatAreaClasses.headerInfo}
-              onClick={handleotherprofiledetail}
+              onClick={openProfile}
             >
               <h3 className={chatAreaClasses.headerName}>{conversation.other_username}</h3>
               <p className={chatAreaClasses.headerStatus}>
@@ -1065,13 +1148,21 @@ const PrivateChat = ({
               <button className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgPale}`} title="Search">
                 <i className="ti ti-search"></i>
               </button>
-              <button className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgPlum}`} title="Call">
+              <button
+                className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgPlum}`}
+                onClick={() => onStartCall?.({ audioOnly: true })}
+                title="Call"
+              >
                 <i className="ti ti-phone"></i>
               </button>
-              <button className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgMagenta}`} title="Video Call">
+              <button
+                className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgMagenta}`}
+                onClick={() => onStartCall?.()}
+                title="Video Call"
+              >
                 <i className="ti ti-video"></i>
               </button>
-              <button className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgPale}`} onClick={handleotherprofiledetail} title="Profile Details">
+              <button className={`${chatAreaClasses.iconButton} ${chatAreaClasses.bgPale}`} onClick={openProfile} title="Profile Details">
                 <i className="ti ti-dots"></i>
               </button>
             </div>
@@ -1096,15 +1187,36 @@ const PrivateChat = ({
               ) : (
                 messages?.map((message, index) => {
                   const prevMsg = messages[index - 1];
-                  const showDivider = !prevMsg || 
-                    new Date(message.created_at).toDateString() !== new Date(prevMsg.created_at).toDateString();
-                  
+                  /* A message optimistically appended before the server has
+                     confirmed it only has `delivered_at` (its own real
+                     timestamp) — `created_at` is null until the response
+                     comes back. Reading `created_at` alone here turned that
+                     null into `new Date(null)` = the Unix epoch, so a
+                     message you just sent could briefly show "Jan 1, 1970"
+                     as its date divider. Same fallback order TextMessage.jsx
+                     already uses for the per-message time. */
+                  const messageDate = new Date(
+                    message.delivered_at || message.created_at || Date.now(),
+                  );
+                  const prevMessageDate = prevMsg
+                    ? new Date(prevMsg.delivered_at || prevMsg.created_at || Date.now())
+                    : null;
+                  const showDivider =
+                    !prevMsg ||
+                    messageDate.toDateString() !== prevMessageDate.toDateString();
+
                   return (
                     <React.Fragment key={message.id || message.tempId}>
                       {showDivider && (
                         <div className={chatAreaClasses.dateDivider}>
                           <span className={chatAreaClasses.dateDividerText}>
-                            {new Date(message.created_at).toDateString() === new Date().toDateString() ? "Today" : new Date(message.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {messageDate.toDateString() === new Date().toDateString()
+                              ? "Today"
+                              : messageDate.toLocaleDateString([], {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
                           </span>
                         </div>
                       )}
@@ -1115,6 +1227,7 @@ const PrivateChat = ({
                         chatContainerRef={chatContainerRef}
                         handleMediaLoad={handleMediaLoad}
                         onCancel={() => cancelDownload(message.id, message)}
+                        onAvatarClick={openProfile}
                       />
                     </React.Fragment>
                   );
@@ -1164,6 +1277,7 @@ const PrivateChat = ({
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onInput={handleInput}
+                onKeyDown={handleComposerKeyDown}
                 placeholder="Write a message..."
                 className={chatAreaClasses.messageInput}
                 rows={1}

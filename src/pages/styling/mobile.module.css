@@ -1,0 +1,858 @@
+/* =========================================================
+   MOBILE CHROME  —  matches the mobile mockups
+   Screens: Inbox · Open chat · Profile / Contact info
+   ========================================================= */
+
+.mobileScreen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--wh);
+  overflow: hidden;
+}
+
+/* Open-chat screen. The mockup keeps the tab bar visible while you are
+   in a conversation, so the chat has to stop short of it. */
+.chatWrap {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 62px - env(safe-area-inset-bottom));
+  min-height: 0;
+  overflow: hidden;
+  background: var(--wh);
+}
+
+/* ---------------------------------------------------------
+   BOTTOM TAB BAR
+   Chats · Groups · Calls · Profile
+   --------------------------------------------------------- */
+
+.tabBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  display: flex;
+  align-items: stretch;
+  height: calc(62px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--wh);
+  border-top: 1px solid var(--bdr);
+}
+
+.tabButton {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 0 10px;
+  color: var(--plum-lt);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  transition: color 0.15s ease;
+}
+
+.tabButton i,
+.tabButton svg {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.tabButton.active {
+  color: var(--m);
+  font-weight: 600;
+}
+
+/* the small dot under the active tab in the mockup */
+.tabButton.active::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--m);
+}
+
+.tabBadge {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  margin-left: 4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--m);
+  color: var(--wh);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--wh);
+}
+
+/* ---------------------------------------------------------
+   INBOX SCREEN
+   --------------------------------------------------------- */
+
+.inboxHeader {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 18px 12px;
+  flex-shrink: 0;
+}
+
+.logoBox {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  /* deliberately not the app font — the Times "U" was kept on request */
+  font-family: 'Times New Roman', Times, serif;
+  background: var(--m);
+  color: var(--wh);
+  font-size: 17px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.inboxTitle {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--plum);
+  letter-spacing: -0.3px;
+}
+
+.headerSpacer {
+  flex: 1;
+}
+
+.headerIconBtn {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--m-pale);
+  color: var(--m);
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* search pill */
+.searchWrap {
+  padding: 0 18px 12px;
+  flex-shrink: 0;
+}
+
+.searchField {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--lav-pale);
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.searchField:focus-within {
+  background: var(--wh);
+  border-color: var(--m-soft);
+}
+
+.searchField i {
+  color: var(--plum-lt);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14.5px;
+  color: var(--plum);
+}
+
+.searchInput::placeholder {
+  color: var(--plum-lt);
+}
+
+/* All / Direct / Groups */
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px 10px;
+  border-bottom: 1px solid var(--bdr);
+  flex-shrink: 0;
+}
+
+.filterChip {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 7px 18px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--plum-lt);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.filterChip.active {
+  background: var(--m);
+  color: var(--wh);
+  font-weight: 600;
+}
+
+/* conversation list */
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(74px + env(safe-area-inset-bottom));
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 18px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--bdr);
+  background: var(--wh);
+  transition: background 0.12s ease;
+}
+
+.row:active {
+  background: var(--m-pale);
+}
+
+.rowAvatar {
+  width: 47px;
+  height: 47px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--m);
+  color: var(--wh);
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.3px;
+}
+
+.rowAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rowBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rowTop {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--plum);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowTime {
+  font-size: 12px;
+  color: var(--plum-lt);
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.rowBottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rowPreview {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--plum-lt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowPreview.unread {
+  color: var(--plum);
+  font-weight: 600;
+}
+
+.unreadBadge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--m);
+  color: var(--wh);
+  font-size: 11.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* states */
+.empty,
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 56px 26px;
+  text-align: center;
+  color: var(--plum-lt);
+  font-size: 14px;
+}
+
+.empty i {
+  font-size: 40px;
+  color: var(--lav-dk);
+}
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid var(--lav);
+  border-top-color: var(--m);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* CSS Modules rewrites animation names in this file to a hashed local name,
+   even when no matching @keyframes is declared here — so a `spin` defined in
+   the global index.css can never match and the element sits still. Every
+   .module.css that animates must declare its own keyframes. */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ---------------------------------------------------------
+   PROFILE / CONTACT INFO SCREEN
+   magenta header block + About + Shared media
+   --------------------------------------------------------- */
+
+.profileScreen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--wh);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(74px + env(safe-area-inset-bottom));
+}
+
+.profileHero {
+  background: var(--m);
+  padding: calc(16px + env(safe-area-inset-top)) 20px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.heroBack {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 14px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--wh);
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.heroEdit {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--wh);
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.heroAvatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--wh);
+  color: var(--m);
+  font-size: 30px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 14px;
+  letter-spacing: 0.5px;
+}
+
+.heroAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.heroName {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--wh);
+  text-align: center;
+  letter-spacing: -0.2px;
+}
+
+.heroSubtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+  margin-top: 4px;
+}
+
+.heroStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 6px 15px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--wh);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.heroStatusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--grn);
+  flex-shrink: 0;
+}
+
+.heroStatusDot.offline {
+  background: var(--lav-dk);
+}
+
+/* Message · Call · Video · More */
+.heroActions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 22px;
+  width: 100%;
+}
+
+.heroAction {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  color: var(--wh);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 54px;
+}
+
+.heroActionIcon {
+  width: 50px;
+  height: 50px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  transition: background 0.15s ease;
+}
+
+.heroAction:active .heroActionIcon {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* About */
+.sectionLabel {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plum);
+  padding: 20px 20px 14px;
+  letter-spacing: 0.1px;
+}
+
+.aboutList {
+  padding: 0 20px;
+}
+
+.aboutRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.aboutRow:last-child {
+  border-bottom: 0;
+}
+
+.aboutIcon {
+  color: var(--m);
+  font-size: 20px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.aboutBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.aboutLabel {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--plum);
+}
+
+.aboutValue {
+  font-size: 13.5px;
+  color: var(--plum-lt);
+  word-break: break-word;
+}
+
+/* Shared media tiles */
+.mediaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 0 20px 22px;
+}
+
+.mediaTile {
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  border: 0;
+  font-family: inherit;
+}
+
+.mediaTile i {
+  font-size: 26px;
+}
+
+.mediaTile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tilePdf {
+  background: #fce7ea;
+  color: #d6304a;
+}
+
+.tileVideo {
+  background: #e4eafd;
+  color: #2f5bd6;
+}
+
+.tileAudio {
+  background: #e1f5ea;
+  color: #1d9e63;
+}
+
+.tileSlide {
+  background: #fdf0dc;
+  color: #c97a16;
+}
+
+.tileDoc {
+  background: #eae7fc;
+  color: #5741c4;
+}
+
+.tileImage {
+  background: #fbe6f4;
+  color: var(--m);
+}
+
+.emptyInline {
+  padding: 0 20px 22px;
+  font-size: 13.5px;
+  color: var(--plum-lt);
+}
+
+/* ---------------------------------------------------------
+   PROFILE EDIT FORM (own profile, WhatsApp-style)
+   --------------------------------------------------------- */
+
+.formSection {
+  padding: 4px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--plum-lt);
+  letter-spacing: 0.2px;
+}
+
+.formInput,
+.formTextarea {
+  width: 100%;
+  border: 1px solid var(--bdr);
+  border-radius: 11px;
+  padding: 11px 13px;
+  font-family: inherit;
+  font-size: 14.5px;
+  color: var(--plum);
+  background: var(--wh);
+  outline: 0;
+  transition: border-color 0.15s ease;
+}
+
+.formInput:focus,
+.formTextarea:focus {
+  border-color: var(--m);
+}
+
+.formTextarea {
+  resize: vertical;
+  min-height: 84px;
+  line-height: 1.5;
+}
+
+.formActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btnPrimary,
+.btnGhost {
+  flex: 1;
+  height: 46px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 0;
+}
+
+.btnPrimary {
+  background: var(--m);
+  color: var(--wh);
+}
+
+.btnGhost {
+  background: var(--lav-pale);
+  color: var(--plum);
+  border: 1px solid var(--bdr);
+}
+
+/* === Public group search results — same row shape as .row, plus a Join
+   button instead of navigating on tap. Class names match the desktop
+   PublicGroupResults component's expectations (conversationItem etc.)
+   rather than this file's usual .row naming, so the one component works
+   unmodified against either module's classes object. === */
+.publicGroupResults {
+  border-bottom: 1px solid var(--bdr);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+
+.publicGroupResultsHeader {
+  padding: 10px 18px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--plum-lt);
+}
+
+.conversationItem {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 18px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--bdr);
+  background: var(--wh);
+}
+
+.avatarWrapper {
+  width: 47px;
+  height: 47px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--m);
+  color: var(--wh);
+}
+
+.avatarWrapper > * {
+  border-radius: 14px !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.conversationContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.conversationHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.conversationName {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--plum);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.conversationFooter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.conversationPreview {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--plum-lt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.joinGroupBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--m-pale);
+  color: var(--m);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.joinGroupBtn:active {
+  background: var(--m);
+  color: var(--wh);
+}

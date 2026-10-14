@@ -1,10 +1,20 @@
 import React, { useState } from "react";
+import { format } from "date-fns";
 import classes from "../pages/styling/chat.module.css";
 import chatAreaClasses from "../pages/styling/chatArea.module.css";
 import { getMediaFrameStyle } from "../utils/mediaUtils.js";
+import InitialsAvatar from "./InitialsAvatar";
 
 export const ImageMessage = React.memo(
-  ({ message, user, onLoad, onCancel }) => {
+  ({ message, user, onLoad, onCancel, onAvatarClick, showSenderName = false }) => {
+    const formatMessageTime = (timestamp) => {
+      try {
+        return format(new Date(timestamp), "h:mm a");
+      } catch {
+        return "";
+      }
+    };
+
     const formatFileSize = (bytes) => {
       if (!bytes && bytes !== 0) return "";
       if (bytes < 1024) return `${bytes} B`;
@@ -148,13 +158,25 @@ export const ImageMessage = React.memo(
             isOwnMessage ? chatAreaClasses.ownMessage : ""
           }`}
         >
+          {/* Avatar column — clicking the other person's avatar opens their profile */}
+          <div className={chatAreaClasses.avatarWrapper}>
+            <InitialsAvatar
+              name={isOwnMessage ? user.username : message.sender_username}
+              imageUrl={isOwnMessage ? user.avatar_url : message.sender_avatar_url}
+              size="sm"
+              status="none"
+              backgroundColor={isOwnMessage ? "var(--lav)" : undefined}
+              color={isOwnMessage ? "var(--m-dk)" : undefined}
+              onClick={!isOwnMessage ? onAvatarClick : undefined}
+            />
+          </div>
+
           <div className={chatAreaClasses.messageContent}>
-            {!isOwnMessage && (
+            {showSenderName && !isOwnMessage && (
               <span className={chatAreaClasses.messageSender}>
                 {message.sender_username}
               </span>
             )}
-
             <div
               className={classes.mediaFrame}
               style={getMediaFrameStyle(message)}
@@ -174,6 +196,14 @@ export const ImageMessage = React.memo(
                 />
               ) : (
                 <div className={classes.mediaPlaceholder}></div>
+              )}
+
+              {/* File size badge, overlaid on the image itself rather than
+                  as separate text underneath. */}
+              {(message.fileSize || message.filesize) && (
+                <span className={chatAreaClasses.mediaSizeBadge}>
+                  {formatFileSize(message.fileSize || message.filesize)}
+                </span>
               )}
 
               {activeImageProgress !== null && (
@@ -198,19 +228,18 @@ export const ImageMessage = React.memo(
               )}
             </div>
 
-            <div style={{fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px'}}>
-              {formatFileSize(message.fileSize || message.filesize)}
-            </div>
-
-            {isOwnMessage && (
-              <span className={chatAreaClasses.messageTime}>
-                {message.status === "pending"
-                  ? "..."
-                  : message.is_read
-                    ? "✓✓"
-                    : "✓"}
-              </span>
-            )}
+            <span className={chatAreaClasses.messageTime}>
+              {formatMessageTime(message.delivered_at || message.created_at)}
+              {isOwnMessage && (
+                <span style={{ marginLeft: "4px" }}>
+                  {message.status === "pending"
+                    ? pendingSpinner(80)
+                    : message.is_read
+                      ? " · ✓✓"
+                      : " · ✓"}
+                </span>
+              )}
+            </span>
           </div>
         </div>
 

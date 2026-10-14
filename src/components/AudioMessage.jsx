@@ -1,18 +1,29 @@
 import React, { useRef, useEffect, useMemo } from "react";
+import { format } from "date-fns";
 import classes from "../pages/styling/chat.module.css";
 import chatAreaClasses from "../pages/styling/chatArea.module.css";
 import { Plyr } from "plyr-react";
 import "plyr-react/plyr.css";
 import { getAuthenticatedFileUrl } from "../utils/mediaUtils.js";
+import InitialsAvatar from "./InitialsAvatar";
 
 export const AudioMessage = React.memo(
-  ({ message, user, onDownloadClick, onCancel }) => {
+  ({ message, user, onDownloadClick, onCancel, onAvatarClick, showSenderName = false }) => {
     const audioRef = useRef(null);
 
     const isSender = message.sender_id !== user.userid;
+    const isOwnMessage = message.sender_id === user.userid;
     const isDownloading = message.isDownloading ?? false;
     const isDownloaded = message.isDownloaded ?? false;
     const isPaused = message.isPaused ?? false;
+
+    const formatMessageTime = (timestamp) => {
+      try {
+        return format(new Date(timestamp), "h:mm a");
+      } catch {
+        return "";
+      }
+    };
 
     const formatFileSize = (bytes) => {
       if (!bytes && bytes !== 0) return "";
@@ -155,13 +166,25 @@ export const AudioMessage = React.memo(
           message.sender_id === user.userid ? chatAreaClasses.ownMessage : ""
         }`}
       >
+        {/* Avatar column — clicking the other person's avatar opens their profile */}
+        <div className={chatAreaClasses.avatarWrapper}>
+          <InitialsAvatar
+            name={isOwnMessage ? user.username : message.sender_username}
+            imageUrl={isOwnMessage ? user.avatar_url : message.sender_avatar_url}
+            size="sm"
+            status="none"
+            backgroundColor={isOwnMessage ? "var(--lav)" : undefined}
+            color={isOwnMessage ? "var(--m-dk)" : undefined}
+            onClick={!isOwnMessage ? onAvatarClick : undefined}
+          />
+        </div>
+
         <div className={chatAreaClasses.messageContent}>
-          {message.sender_id !== user.userid && (
+          {showSenderName && !isOwnMessage && (
             <span className={chatAreaClasses.messageSender}>
               {message.sender_username}
             </span>
           )}
-          
           {isSender ? (
           <div className={classes.insidefile_container_audio}>
             {/* LEFT SIDE (icon / spinner / download) */}
@@ -257,15 +280,18 @@ export const AudioMessage = React.memo(
               </div>
             </div>
 
-            {message.sender_id === user.userid && (
-              <span className={classes.messageStatus}>
-                {message.status === "pending"
-                  ? pendingSpinner(85)
-                  : message.is_read
-                    ? "✔✔"
-                    : "✔"}
-              </span>
-            )}
+            <span className={chatAreaClasses.messageTime}>
+              {formatMessageTime(message.delivered_at || message.created_at)}
+              {isOwnMessage && (
+                <span style={{ marginLeft: "4px" }}>
+                  {message.status === "pending"
+                    ? pendingSpinner(85)
+                    : message.is_read
+                      ? " · ✔✔"
+                      : " · ✔"}
+                </span>
+              )}
+            </span>
           </div>
         ) : (
           <div className={classes.insidefile_container_audio}>
@@ -408,15 +434,18 @@ export const AudioMessage = React.memo(
                 {formatFileSize(message.filesize)}
               </div>
             </div>
-            {message.sender_id === user.userid && (
-              <span className={classes.messageStatus}>
-                {message.status === "pending"
-                  ? pendingSpinner(85)
-                  : message.is_read
-                    ? "✔✔"
-                    : "✔"}
-              </span>
-            )}
+            <span className={chatAreaClasses.messageTime}>
+              {formatMessageTime(message.delivered_at || message.created_at)}
+              {isOwnMessage && (
+                <span style={{ marginLeft: "4px" }}>
+                  {message.status === "pending"
+                    ? pendingSpinner(85)
+                    : message.is_read
+                      ? " · ✔✔"
+                      : " · ✔"}
+                </span>
+              )}
+            </span>
           </div>
         )}
         </div>

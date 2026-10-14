@@ -1,0 +1,901 @@
+/* =========================================================
+   CALL SCREEN  —  dark theme
+   Desktop matches the call mockups; mobile is the same
+   system adapted to one column + a bottom sheet.
+   ========================================================= */
+
+.callRoot {
+  --call-bg: #191022;
+  --call-panel: #1d1327;
+  --call-rail: #150d1d;
+  --call-border: #2f2139;
+  --call-tile-a: #32183c;
+  --call-tile-b: #1f1128;
+  --call-text: #f4ecf7;
+  --call-muted: #a28fb0;
+  --call-chip: #241830;
+  --call-live: #e5342a;
+  --call-speaking: #4ade80;
+
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  background: var(--call-bg);
+  color: var(--call-text);
+  font-family: 'DM Sans', sans-serif;
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------
+   LEFT RAIL (desktop only)
+   --------------------------------------------------------- */
+
+.rail {
+  width: 72px;
+  flex-shrink: 0;
+  background: var(--call-rail);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 18px;
+}
+
+.railLogo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  /* deliberately not the app font — the Times "U" was kept on request */
+  font-family: 'Times New Roman', Times, serif;
+  background: var(--m);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------
+   MAIN COLUMN
+   --------------------------------------------------------- */
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 24px 14px;
+  flex-shrink: 0;
+}
+
+.headerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--call-text);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--call-muted);
+  margin-top: 2px;
+}
+
+.liveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 7px;
+  background: var(--call-live);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  flex-shrink: 0;
+}
+
+.headerBtn {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--call-chip);
+  color: var(--call-text);
+  font-size: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Unlike the mobile-only sheet toggle, minimizing is available on desktop
+   too — there is no other way to get out of the full-screen call there. */
+.minimizeBtn {
+  display: flex;
+}
+
+/* ---------------------------------------------------------
+   VIDEO STAGE
+   --------------------------------------------------------- */
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 16px;
+  padding: 0 24px 8px;
+  position: relative;
+}
+
+.stageSide {
+  display: grid;
+  /* auto-rows, not `1fr 1fr` — a group call has as many thumbnails as it has
+     peers, and a 1:1 call has none. */
+  grid-auto-rows: 1fr;
+  gap: 16px;
+  min-height: 0;
+}
+
+/* nobody else on the stage yet: the main tile takes the whole width */
+.stage.solo {
+  grid-template-columns: 1fr;
+}
+
+.stage.solo .stageSide {
+  display: none;
+}
+
+/* getUserMedia was refused or there is no device — say so rather than
+   showing a silent, black call. */
+.mediaWarning {
+  flex-shrink: 0;
+  margin: 0 24px 10px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: rgba(229, 52, 42, 0.14);
+  border: 1px solid rgba(229, 52, 42, 0.4);
+  color: #f6d8d6;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.tile {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(155deg, var(--call-tile-a), var(--call-tile-b));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  border: 2px solid transparent;
+}
+
+.tile.speaking {
+  border-color: var(--call-speaking);
+}
+
+/* Any tile that can be pinned to the main stage — the small side thumbnails
+   and the self preview pip. A visible hover cue is the only hint that they
+   are clickable, since there is no separate "swap" button in the mockup. */
+.tileClickable {
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.tileClickable:hover {
+  box-shadow: 0 0 0 2px var(--m);
+}
+
+.tileClickable:active {
+  transform: scale(0.97);
+}
+
+.tileVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tileAvatar {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: var(--m);
+  color: #fff;
+  font-size: 33px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.5px;
+  overflow: hidden;
+}
+
+.tileAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tileAvatar.small {
+  width: 76px;
+  height: 76px;
+  font-size: 24px;
+}
+
+.nameChip {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 24px);
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(12, 7, 17, 0.72);
+  backdrop-filter: blur(6px);
+  color: var(--call-text);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nameChipDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--call-speaking);
+  flex-shrink: 0;
+}
+
+.mutedPill {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--call-live);
+  color: #fff;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* self preview */
+.selfPip {
+  position: absolute;
+  right: 38px;
+  bottom: 22px;
+  width: 148px;
+  height: 104px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(155deg, var(--call-tile-a), var(--call-tile-b));
+  border: 1px solid var(--call-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+}
+
+.selfPip .tileAvatar {
+  width: 52px;
+  height: 52px;
+  font-size: 17px;
+}
+
+.selfLabel {
+  position: absolute;
+  left: 8px;
+  bottom: 7px;
+  font-size: 11px;
+  color: var(--call-muted);
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------
+   CONTROL BAR
+   --------------------------------------------------------- */
+
+.controls {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 14px 24px 22px;
+  position: relative;
+}
+
+.timer {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--call-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ctrl {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  color: var(--call-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 56px;
+}
+
+.ctrlIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--call-chip);
+  color: var(--call-text);
+  font-size: 21px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.ctrl:hover .ctrlIcon {
+  background: #2f2039;
+}
+
+.ctrl:active .ctrlIcon {
+  transform: scale(0.94);
+}
+
+/* camera on / active toggle */
+.ctrl.on .ctrlIcon {
+  background: var(--m);
+  color: #fff;
+}
+
+/* muted / disabled toggle */
+.ctrl.off .ctrlIcon {
+  background: #3a2440;
+  color: #d9c4e2;
+}
+
+.ctrl.leave .ctrlIcon {
+  background: var(--call-live);
+  color: #fff;
+}
+
+.ctrl.leave:hover .ctrlIcon {
+  background: #f04437;
+}
+
+/* ---------------------------------------------------------
+   RIGHT PANEL — participants + in-call chat
+   --------------------------------------------------------- */
+
+.panel {
+  width: 372px;
+  flex-shrink: 0;
+  background: var(--call-panel);
+  border-left: 1px solid var(--call-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panelHead {
+  padding: 18px 20px 12px;
+  flex-shrink: 0;
+}
+
+.panelTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--call-text);
+}
+
+.panelCount {
+  font-size: 13px;
+  color: var(--call-muted);
+  margin-top: 2px;
+}
+
+.participantList {
+  max-height: 210px;
+  overflow-y: auto;
+  padding: 0 20px 12px;
+  flex-shrink: 0;
+}
+
+.participant {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.participantAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--m);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.participantAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.participantBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.participantName {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--call-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.participantRole {
+  font-size: 12.5px;
+  color: var(--call-muted);
+  margin-top: 1px;
+}
+
+.participantIcons {
+  display: flex;
+  gap: 8px;
+  color: var(--call-muted);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.participantIcons .muted {
+  color: var(--call-live);
+}
+
+/* in-call chat */
+.chatHead {
+  padding: 14px 20px 10px;
+  border-top: 1px solid var(--call-border);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--call-text);
+  flex-shrink: 0;
+}
+
+.chatScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.chatMsg {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.chatAuthor {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--call-text);
+}
+
+.chatMsg.own .chatAuthor {
+  color: #d98cc4;
+}
+
+.chatBubble {
+  background: var(--call-chip);
+  border-radius: 11px;
+  padding: 10px 13px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--call-text);
+  word-break: break-word;
+}
+
+.chatMsg.own .chatBubble {
+  background: var(--m);
+  color: #fff;
+}
+
+.chatComposer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--call-border);
+}
+
+.composerBtn {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--call-muted);
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.composerBtn:hover {
+  color: var(--call-text);
+}
+
+.composerInput {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid var(--call-border);
+  background: var(--call-bg);
+  padding: 0 16px;
+  color: var(--call-text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: 0;
+}
+
+.composerInput::placeholder {
+  color: var(--call-muted);
+}
+
+.composerSend {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--m);
+  color: #fff;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* backdrop only used by the mobile sheet */
+.sheetBackdrop {
+  display: none;
+}
+
+/* =========================================================
+   MOBILE  —  one column, thumbnail strip, bottom sheet
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .rail {
+    display: none;
+  }
+
+  .header {
+    padding: calc(14px + env(safe-area-inset-top)) 16px 10px;
+  }
+
+  .title {
+    font-size: 17px;
+  }
+
+  .headerBtn {
+    display: flex;
+  }
+
+  /* active speaker fills the screen, others ride on top */
+  .stage {
+    display: block;
+    padding: 0 12px 4px;
+  }
+
+  .tileMain {
+    width: 100%;
+    height: 100%;
+  }
+
+  .stageSide {
+    position: absolute;
+    top: 12px;
+    right: 24px;
+    left: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 3;
+    width: 104px;
+  }
+
+  .stageSide .tile {
+    height: 78px;
+    border-radius: 11px;
+  }
+
+  .stageSide .tileAvatar {
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  /* names get in the way at thumbnail size */
+  .stageSide .nameChip {
+    left: 6px;
+    bottom: 6px;
+    padding: 3px 7px;
+    font-size: 10px;
+    max-width: calc(100% - 12px);
+  }
+
+  .stageSide .mutedPill {
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  .stage.solo .stageSide {
+    display: none;
+  }
+
+  .mediaWarning {
+    margin: 0 12px 8px;
+    font-size: 12px;
+  }
+
+  .selfPip {
+    right: 24px;
+    bottom: 14px;
+    width: 92px;
+    height: 122px;
+  }
+
+  .selfPip .tileAvatar {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+  }
+
+  /* Control bar: timer on its own row above the buttons.
+     Grid rather than flex-wrap — with `flex: 1` the buttons get a
+     flex-basis of 0, never force a wrap, and collapse to zero width. */
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    align-items: start;
+    justify-items: center;
+    column-gap: 4px;
+    padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .timer {
+    position: static;
+    transform: none;
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 13px;
+    color: var(--call-muted);
+    margin-bottom: 10px;
+  }
+
+  .ctrl {
+    min-width: 0;
+    width: 100%;
+    font-size: 10.5px;
+    gap: 5px;
+  }
+
+  .ctrlIcon {
+    width: 46px;
+    height: 46px;
+    font-size: 19px;
+  }
+
+  /* right panel becomes a bottom sheet */
+  .panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 76vh;
+    border-left: 0;
+    border-top: 1px solid var(--call-border);
+    border-radius: 20px 20px 0 0;
+    z-index: 20;
+    transform: translateY(100%);
+    transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .panel.open {
+    transform: translateY(0);
+  }
+
+  /* grab handle */
+  .panelHead::before {
+    content: "";
+    display: block;
+    width: 38px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--call-border);
+    margin: 0 auto 14px;
+  }
+
+  .sheetBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+    background: rgba(8, 4, 12, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.26s ease;
+  }
+
+  .sheetBackdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .participantList {
+    max-height: 170px;
+  }
+}
+
+/* ---------------------------------------------------------
+   MINIMIZED CALL BAR — shown instead of the full CallScreen
+   --------------------------------------------------------- */
+
+.miniBar {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 10px;
+  border-radius: 999px;
+  background: var(--call-panel);
+  border: 1px solid var(--call-border);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  max-width: min(340px, calc(100vw - 32px));
+  font-family: 'DM Sans', sans-serif;
+}
+
+.miniIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--m);
+  color: #fff;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.miniInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.miniTitle {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--call-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.miniSub {
+  font-size: 11.5px;
+  color: var(--call-muted);
+  margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.miniBtn {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--call-chip);
+  color: var(--call-text);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.miniLeave {
+  background: var(--call-live);
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .miniBar {
+    right: 12px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    left: 12px;
+    max-width: none;
+  }
+}
+
+/* very narrow phones: drop the labels under the controls */
+@media (max-width: 380px) {
+  .ctrl {
+    font-size: 0;
+    gap: 0;
+  }
+
+  .ctrlIcon {
+    width: 44px;
+    height: 44px;
+  }
+}

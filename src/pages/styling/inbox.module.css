@@ -1,278 +1,360 @@
 /* ============================================================
-   inbox.module.css — UoPeople Chat Conversation List (Panel 2)
-   ════════════════════════════════════════════════════════════ */
+   inbox.module.css — conversation list column
+   Matches the desktop mockup's middle panel
+   ============================================================ */
 
 .inboxPanel {
-  width: 256px;
-  min-width: 256px;
-  max-width: 256px;
-  background: var(--wh);
-  border-right: 1px solid var(--bdr);
+  width: 336px;
+  min-width: 336px;
+  max-width: 336px;
+  background: var(--inbox-bg);
+  border-right: 1px solid var(--inbox-line);
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
 }
 
+/* header: title + count on the left, action on the right */
 .inboxHeader {
-  padding: 14px 15px 11px;
-  border-bottom: 1px solid var(--bdr);
   display: flex;
-  flex-direction: column;
-}
-
-.inboxTitleRow {
-  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
+  gap: 12px;
+  padding: 22px 22px 16px;
+  flex-shrink: 0;
 }
 
 .inboxTitle {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--plum);
-  margin: 0;
+  margin: 0 0 2px;
+  letter-spacing: -0.2px;
 }
 
 .inboxHeaderActions {
   display: flex;
   align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .iconButton {
-  background: none;
-  border: none;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--inbox-field);
   color: var(--m);
-  cursor: pointer;
-  font-size: 19px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.inboxSubtitle {
-  font-size: 11px;
-  color: var(--plum-lt);
-  margin-top: 2px;
-}
-
-/* Tabs Row */
-.filterTabs {
-  display: flex;
-  gap: 4px;
-  margin-top: 10px;
-}
-
-.filterTab {
-  background: transparent;
-  border: none;
-  font-size: 12px;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-weight: 500;
-  color: var(--plum);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.14s ease;
 }
 
-.filterTab:hover {
-  background: var(--m-pale);
-  color: var(--m);
+.iconButton:hover {
+  background: var(--m-soft);
 }
 
-.filterTab.active {
-  background: var(--m);
-  color: var(--wh);
-}
-
-/* Search Box Container */
+/* search */
 .searchContainer {
-  padding: 10px 15px 0;
+  padding: 0 22px 14px;
+  flex-shrink: 0;
 }
 
 .searchInputWrapper {
   display: flex;
   align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--inbox-field);
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.searchInputWrapper:focus-within {
   background: var(--wh);
-  border: 1px solid var(--bdr);
-  border-radius: 24px;
-  padding: 8px 16px;
-  gap: 6px;
+  border-color: var(--m-soft);
 }
 
 .searchInput {
-  border: none;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
   background: transparent;
-  width: 100%;
-  font-size: 12px;
-  outline: none;
+  font-family: inherit;
+  font-size: 14.5px;
   color: var(--plum);
 }
 
 .searchInput::placeholder {
-  color: var(--plum-lt);
-  opacity: 0.6;
+  color: var(--inbox-mute);
 }
 
-/* Conversation List */
+/* All / Direct / Groups */
+.filterTabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 22px 12px;
+  border-bottom: 1px solid var(--inbox-line);
+  flex-shrink: 0;
+}
+
+.filterTab {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--inbox-mute);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.filterTab:hover {
+  color: var(--plum);
+}
+
+.filterTab.active {
+  background: var(--m);
+  color: var(--wh);
+  font-weight: 600;
+}
+
+/* list */
 .conversationsList {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
 .conversationItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 15px;
+  gap: 14px;
+  padding: 14px 22px;
   cursor: pointer;
+  border-bottom: 1px solid var(--inbox-row-line);
+  position: relative;
   background: transparent;
-  transition: background 0.15s ease;
-  border-left: 3px solid transparent;
+  transition: background 0.12s ease;
+}
+
+.conversationItem:last-child {
+  border-bottom-color: transparent;
 }
 
 .conversationItem:hover {
-  background: var(--lav-pale);
+  background: var(--inbox-row-hover);
 }
 
+/* selected row lifts to white and takes the magenta indicator */
 .conversationItem.selected {
-  background: var(--m-soft);
-  border-left-color: var(--m);
+  background: var(--inbox-row-sel);
 }
 
-/* Avatar Styling */
+/* magenta marker on the selected row, as in the mockup */
+.conversationItem.selected::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--m);
+}
+
 .avatarWrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   flex-shrink: 0;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
+  background: var(--m);
   color: var(--wh);
+  font-size: 15px;
+  font-weight: 700;
 }
 
-/* Group chats have square avatars with 11px border radius */
-.avatar.groupAvatar {
-  border-radius: 11px;
+.avatarWrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* InitialsAvatar renders its own circle — square it off to match */
+.avatarWrapper > * {
+  border-radius: 14px !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .conversationContent {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .conversationHeader {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 2px;
+  gap: 10px;
 }
 
 .conversationName {
-  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
   font-weight: 600;
   color: var(--plum);
+  margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin: 0;
 }
 
 .conversationTime {
-  font-size: 10px;
-  color: var(--plum-lt);
+  font-size: 12.5px;
+  color: var(--inbox-mute);
   flex-shrink: 0;
+  font-weight: 500;
 }
 
 .conversationFooter {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .conversationPreview {
-  font-size: 11px;
-  color: var(--plum-lt);
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--inbox-mute);
+  margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin: 0;
 }
 
 .conversationPreview.unread {
-  font-weight: 600;
   color: var(--plum);
+  font-weight: 600;
 }
 
 .unreadBadge {
-  background: #E8590C;
+  min-width: 23px;
+  height: 23px;
+  padding: 0 7px;
+  border-radius: 12px;
+  background: var(--m);
   color: var(--wh);
-  font-size: 9px;
-  font-weight: 600;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  font-size: 11.5px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
   flex-shrink: 0;
 }
 
-/* Loading & Empty States */
+/* states */
+.emptyState,
 .loadingContainer {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 150px;
+  gap: 12px;
+  padding: 60px 30px;
+  text-align: center;
   color: var(--plum-lt);
+  font-size: 14px;
+}
+
+.emptyState svg,
+.emptyState i {
+  font-size: 42px;
+  color: var(--lav-dk);
+}
+
+.emptyState p,
+.loadingContainer p {
+  margin: 0;
 }
 
 .spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--bdr);
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--lav);
   border-top-color: var(--m);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 8px;
+  animation: spin 0.7s linear infinite;
 }
 
-.emptyState {
+/* CSS Modules rewrites animation names in this file to a hashed local name,
+   even when no matching @keyframes is declared here — so a `spin` defined in
+   the global index.css can never match and the element sits still. Every
+   .module.css that animates must declare its own keyframes. */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* === Public group search results === */
+.publicGroupResults {
+  border-bottom: 1px solid var(--inbox-row-line);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+
+.publicGroupResultsHeader {
+  padding: 10px 22px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--plum-mid);
+}
+
+.joinGroupBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--m-pale, rgba(145, 0, 108, 0.1));
+  color: var(--m);
+  font-size: 16px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 30px 15px;
-  color: var(--plum-lt);
-  text-align: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s ease;
 }
 
-.emptyState svg {
-  font-size: 32px;
-  margin-bottom: 10px;
-  opacity: 0.5;
-}
-
-.adminBadge {
-  font-size: 9px;
-  background: var(--plum-lt);
+.joinGroupBtn:hover {
+  background: var(--m);
   color: var(--wh);
-  padding: 1px 4px;
-  border-radius: 4px;
 }
 
-/* Responsive */
+/* === MOBILE === */
 @media (max-width: 768px) {
   .inboxPanel {
     width: 100%;
+    min-width: 0;
     max-width: 100%;
   }
 }

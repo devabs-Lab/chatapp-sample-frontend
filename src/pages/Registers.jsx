@@ -13,6 +13,7 @@ function Registers() {
   const isLogin = location.pathname === "/login";
 
   const [showPassword, setShowPassword] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const [errors, setErrors] = useState({});
   const [toperror, setToperr] = useState("");
   const [toperrors, setToperrs] = useState("");
@@ -120,7 +121,9 @@ function Registers() {
 
   async function handleSubmitfors(e) {
     e.preventDefault();
+    if (isSigningIn) return; // already in flight — ignore repeat clicks/Enter
     setToperrs("");
+    setIsSigningIn(true);
     try {
       const res = await axiosbase.post("/users/login", {
         email: signData.email,
@@ -136,6 +139,8 @@ function Registers() {
     } catch (error) {
       setToperrs(error?.response?.data?.msg);
       showErrorAlert("Login Failed", error?.response?.data?.msg || "Something went wrong");
+    } finally {
+      setIsSigningIn(false);
     }
   }
 
@@ -233,8 +238,16 @@ function Registers() {
                 Forgot password?
               </Link>
 
-              <button type="submit" className={classes.submitBtn}>
-                Sign In
+              <button
+                type="submit"
+                className={`${classes.submitBtn} ${isSigningIn ? classes.loading : ""}`}
+                disabled={isSigningIn}
+              >
+                {isSigningIn ? (
+                  <span className={classes.spinner} aria-hidden="true"></span>
+                ) : (
+                  "Sign In"
+                )}
               </button>
             </form>
           </>

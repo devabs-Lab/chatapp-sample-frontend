@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
+import { format } from "date-fns";
 import classes from "../pages/styling/chat.module.css";
 import chatAreaClasses from "../pages/styling/chatArea.module.css";
 import { useVideoVisibilitys } from "./UseVideoVisibilitys";
@@ -6,13 +7,22 @@ import { Plyr } from "plyr-react";
 import "plyr-react/plyr.css";
 import { getAuthenticatedFileUrl, getMediaFrameStyle } from "../utils/mediaUtils.js";
 import FileMessage from "./FileMessage.jsx";
+import InitialsAvatar from "./InitialsAvatar";
 
 export const VideoMessage = React.memo(
-  ({ message, user, onDownloadClick, onLoad, onCancel }) => {
+  ({ message, user, onDownloadClick, onLoad, onCancel, onAvatarClick, showSenderName = false }) => {
     const videoRef = useRef(null);
     const clickTimeout = useRef(null);
 
     useVideoVisibilitys(videoRef);
+    const formatMessageTime = (timestamp) => {
+      try {
+        return format(new Date(timestamp), "h:mm a");
+      } catch {
+        return "";
+      }
+    };
+
     const formatFileSize = (bytes) => {
       if (!bytes && bytes !== 0) return "";
       if (bytes < 1024) return `${bytes} B`;
@@ -182,6 +192,8 @@ export const VideoMessage = React.memo(
           user={user}
           onCancel={onCancel}
           onDownloadClick={onDownloadClick}
+          onAvatarClick={onAvatarClick}
+          showSenderName={showSenderName}
         />
       );
     }
@@ -195,13 +207,25 @@ export const VideoMessage = React.memo(
             message.sender_id === user.userid ? chatAreaClasses.ownMessage : ""
           }`}
         >
+          {/* Avatar column — clicking the other person's avatar opens their profile */}
+          <div className={chatAreaClasses.avatarWrapper}>
+            <InitialsAvatar
+              name={message.sender_id === user.userid ? user.username : message.sender_username}
+              imageUrl={message.sender_id === user.userid ? user.avatar_url : message.sender_avatar_url}
+              size="sm"
+              status="none"
+              backgroundColor={message.sender_id === user.userid ? "var(--lav)" : undefined}
+              color={message.sender_id === user.userid ? "var(--m-dk)" : undefined}
+              onClick={message.sender_id !== user.userid ? onAvatarClick : undefined}
+            />
+          </div>
+
           <div className={chatAreaClasses.messageContent}>
-            {message.sender_id !== user.userid && (
+            {showSenderName && message.sender_id !== user.userid && (
               <span className={chatAreaClasses.messageSender}>
                 {message.sender_username}
               </span>
             )}
-
             {(message.thumburl || message.preview) && isSender ? (
               <div className={classes.receiver_container}>
                 <div
@@ -222,6 +246,12 @@ export const VideoMessage = React.memo(
                     onClick={handleClick}
                     preload="none"
                   />
+
+                  {message.filesize != null && (
+                    <span className={chatAreaClasses.mediaSizeBadge}>
+                      {formatFileSize(message.filesize)}
+                    </span>
+                  )}
                 </div>
 
                 {message.downloadProgress < 100 && (
@@ -281,6 +311,12 @@ export const VideoMessage = React.memo(
                     onClick={handleClick}
                     preload="none"
                   />
+
+                  {message.filesize != null && (
+                    <span className={chatAreaClasses.mediaSizeBadge}>
+                      {formatFileSize(message.filesize)}
+                    </span>
+                  )}
                 </div>
 
                 {(message.uploadProgress < 100 && message.uploadProgress >= 0) ||
@@ -315,20 +351,18 @@ export const VideoMessage = React.memo(
               </div>
             )}
 
-            <div style={{fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px'}}>
-              {formatFileSize(message.filesize)}
-            </div>
-
-            {message.sender_id === user.userid && (
-              <span className={chatAreaClasses.messageTime}>
-                {message.status === "pending"
-                  ? "..."
-                  : message.is_read
-                    ? "✓✓"
-                    : "✓"}
-              </span>
-            )}
-
+            <span className={chatAreaClasses.messageTime}>
+              {formatMessageTime(message.delivered_at || message.created_at)}
+              {message.sender_id === user.userid && (
+                <span style={{ marginLeft: "4px" }}>
+                  {message.status === "pending"
+                    ? pendingSpinner(80)
+                    : message.is_read
+                      ? " · ✓✓"
+                      : " · ✓"}
+                </span>
+              )}
+            </span>
           </div>
         </div>
 

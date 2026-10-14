@@ -1,6 +1,7 @@
 /* ============================================================
-   layout.module.css — UoPeople Chat Edge-to-Edge Layout
-   ════════════════════════════════════════════════════════════ */
+   layout.module.css — UoPeople Chat shell + left nav rail
+   Matches the desktop mockup: rail · inbox · chat · profile
+   ============================================================ */
 
 .chatContainer {
   display: flex;
@@ -8,16 +9,16 @@
   width: 100vw;
   overflow: hidden;
   margin: 0;
-  background: var(--lav-pale);
+  background: var(--wh);
 }
 
-/* === PANEL 1: SIDEBAR === */
+/* === PANEL 1: NAV RAIL === */
 .navRail {
-  width: 228px;
-  min-width: 228px;
-  max-width: 228px;
-  background: var(--wh);
-  border-right: 1px solid var(--bdr);
+  width: 248px;
+  min-width: 248px;
+  max-width: 248px;
+  background: var(--rail-bg);
+  border-right: 1px solid var(--rail-line);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -26,172 +27,218 @@
 .branding {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 18px 16px 12px;
-  border-bottom: 1px solid var(--bdr);
+  gap: 12px;
+  padding: 20px 20px 16px;
 }
 
 .logoBox {
-  width: 32px;
-  height: 32px;
-  background: var(--m);
-  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  background: var(--logo-bg);
+  border-radius: 13px;
+  /* deliberately not the app font — the Times "U" was kept on request */
+  font-family: 'Times New Roman', Times, serif;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--wh);
-  font-weight: 600;
-  font-size: 14px;
-  box-shadow: 0 2px 6px rgba(145, 0, 108, 0.3);
+  color: var(--logo-text);
+  font-weight: 700;
+  font-size: 19px;
+  flex-shrink: 0;
 }
 
 .brandText {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  /* Held at Source Serif 4 on request — the rest of the app went back to
+     DM Sans, but this lockup was to be left exactly as it was. Its font
+     link in index.html exists solely for this rule. */
+  font-family: 'Source Serif 4', 'Times New Roman', Times, serif;
 }
 
 .brandText h2 {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--plum);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rail-text);
   margin: 0;
-  line-height: 1.2;
+  line-height: 1.25;
+  letter-spacing: -0.2px;
 }
 
 .brandText p {
-  font-size: 10px;
-  color: var(--plum-lt);
+  font-size: 12.5px;
+  color: var(--rail-mute);
   margin: 0;
 }
 
 .globalSearch {
-  padding: 10px 16px;
+  padding: 4px 18px 14px;
 }
 
 .searchInputWrapper {
   display: flex;
   align-items: center;
-  background: var(--lav-pale);
-  border: 1px solid var(--bdr);
-  border-radius: 24px;
-  padding: 7px 14px;
-  gap: 7px;
+  background: var(--rail-field);
+  border: 1px solid var(--rail-field-line);
+  border-radius: 12px;
+  padding: 0 14px;
+  height: 42px;
+  gap: 10px;
   width: 100%;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.searchInputWrapper:focus-within {
+  background: var(--rail-field-focus);
+  border-color: var(--rail-field-brdr);
 }
 
 .searchInputWrapper input {
   background: transparent;
   border: none;
   outline: none;
-  color: var(--plum);
-  font-size: 12px;
+  color: var(--rail-text);
+  font-family: inherit;
+  font-size: 14px;
   width: 100%;
+  min-width: 0;
 }
 
 .searchInputWrapper input::placeholder {
-  color: var(--plum-lt);
+  color: var(--rail-mute);
 }
 
 .searchIcon {
-  font-size: 14px;
-  color: var(--plum-lt);
+  font-size: 16px;
+  color: var(--rail-mute);
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
-/* Sections & Headers */
+/* Sections & headers */
 .navSection {
-  padding: 4px 0;
+  padding: 2px 0;
   display: flex;
   flex-direction: column;
 }
 
 .sectionHeader {
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 600;
-  color: var(--plum-lt);
-  opacity: 0.55;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 10px 16px 3px;
+  color: var(--rail-mute);
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+  padding: 12px 20px 6px;
+  margin: 0;
 }
 
 .navItems {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+  padding: 0 12px;
 }
 
 .navItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: 13px;
+  padding: 0 14px;
+  height: 46px;
   cursor: pointer;
   position: relative;
   background: transparent;
   border: none;
+  border-radius: 12px;
   width: 100%;
   text-align: left;
+  font-family: inherit;
+  transition: background 0.14s ease;
 }
 
 .navItem:hover {
-  background: var(--lav-pale);
+  background: var(--rail-hover);
 }
 
+/* active row. The outline is an inset shadow rather than a border so the
+   row does not change size between themes. */
 .navItem.active {
-  background: var(--m-pale);
+  background: var(--rail-active-bg);
+  box-shadow: inset 0 0 0 1px var(--rail-active-line);
 }
 
-.navItem.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: var(--m);
+/* The label span carries no class, so match it the same way the base
+   rule below does — otherwise the active colour never reaches it. */
+.navItem.active .navIcon,
+.navItem.active .navLabel,
+.navItem.active span:not(.navIcon):not(.badge):not(.soonBadge) {
+  color: var(--rail-active-text);
 }
 
-.navItem.active .navIcon {
-  color: var(--m);
+.navItem.active .navLabel,
+.navItem.active span:not(.navIcon):not(.badge):not(.soonBadge) {
+  font-weight: 600;
 }
 
-.navItem.active span {
-  color: var(--plum);
-  font-weight: 500;
-}
-
+/* The icon must not be caught by the label rule below — it was
+   picking up `flex: 1` and stealing half the row. */
 .navIcon {
-  font-size: 18px;
-  color: var(--plum-lt);
-  width: 20px;
+  font-size: 21px;
+  color: var(--rail-mute);
+  width: 24px;
+  flex: 0 0 24px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.navItem span {
-  font-size: 13px;
-  color: var(--plum-lt);
-  flex: 1;
+.navItem span:not(.navIcon):not(.badge):not(.soonBadge),
+.navLabel {
+  font-size: 15px;
+  color: var(--rail-text);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .soonBadge {
-  font-size: 10px;
-  color: var(--lav-dk);
+  font-size: 12.5px;
+  color: var(--rail-mute);
   font-weight: 500;
   margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .badge {
   background: var(--m);
   color: var(--wh);
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+  font-size: 11.5px;
+  font-weight: 700;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
   margin-left: auto;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* On the deep theme the active row is filled magenta, so the badge
+   inverts to stay legible. On classic the row is pale and the badge
+   keeps its magenta fill. */
+.navItem.active .badge {
+  background: var(--rail-active-text);
+  color: var(--rail-active-bg);
+  box-shadow: none;
+}
+
+:root[data-theme="classic"] .navItem.active .badge {
+  background: var(--m);
+  color: var(--wh);
 }
 
 .spacer {
@@ -202,40 +249,42 @@
 .quickDms {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+  padding: 0 12px;
 }
 
 .quickDmItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: 12px;
+  padding: 0 14px;
+  height: 44px;
+  border-radius: 12px;
   cursor: pointer;
   position: relative;
+  transition: background 0.14s ease;
 }
 
 .quickDmItem:hover {
-  background: var(--lav-pale);
+  background: var(--rail-hover);
 }
 
 .quickDmName {
-  font-size: 13px;
-  color: var(--plum-lt);
+  font-size: 14.5px;
+  color: var(--rail-text);
   flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .statusDot {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  border: 1.5px solid var(--wh);
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .statusDot.online {
@@ -243,34 +292,35 @@
 }
 
 .statusDot.offline {
-  background: var(--lav-dk);
+  background: var(--rail-dot-off);
 }
 
-/* Footer Section */
+/* Footer — signed-in user */
 .userProfileContainer {
   margin-top: auto;
-  padding: 12px 16px;
-  border-top: 1px solid var(--bdr);
+  padding: 13px 14px;
+  border-top: 1px solid var(--rail-line);
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   cursor: pointer;
 }
 
 .userProfileContainer:hover {
-  background: var(--lav-pale);
+  background: var(--rail-hover);
 }
 
 .userProfileText {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .userProfileText h4 {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--plum);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--rail-text);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -278,25 +328,51 @@
 }
 
 .userProfileText p {
-  font-size: 10px;
-  color: var(--plum-lt);
+  font-size: 12.5px;
+  color: var(--rail-mute);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* palette + gear, pushed to the right edge of the user card */
+.footerIcon,
 .settingsIcon {
-  margin-left: auto;
-  color: var(--plum-lt);
-  font-size: 17px;
+  color: var(--rail-mute);
+  font-size: 18px;
   display: flex;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  transition: color 0.13s ease, background 0.13s ease;
 }
 
+/* the first of the two carries the spacing */
+.footerIcon {
+  margin-left: auto;
+}
+
+/* keep the pair snug so the name keeps its room */
+.footerIcon + .settingsIcon {
+  margin-left: 2px;
+}
+
+.footerIcon:hover,
 .settingsIcon:hover {
-  color: var(--m);
+  color: var(--rail-text);
+  background: var(--rail-hover);
+}
+
+/* Those white rings lift the logo/badge off the dark rail; on the
+   light rail they do nothing, so drop them. */
+:root[data-theme="classic"] .logoBox,
+:root[data-theme="classic"] .badge {
+  box-shadow: none;
 }
 
 /* === MOBILE ADAPTATION === */

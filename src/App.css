@@ -9,7 +9,10 @@ body.swal2-shown {
   overflow-y: visible !important;
 }
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  /* DM Sans, not Inter: nothing in index.html ever loaded Inter, so the
+     baseline silently fell back to system-ui here while the chat app
+     rendered DM Sans. Same font everywhere now. */
+  font-family: 'DM Sans', sans-serif;
   background-color: #ffffff;
   overflow: hidden;
 }

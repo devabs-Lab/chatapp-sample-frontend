@@ -11,16 +11,24 @@
   height: 100%;
   position: relative;
   min-width: 0;
+  /* Without this, a flex item defaults to min-height: auto — "at least as
+     tall as my content" — so .messagesArea below never actually shrinks to
+     its allotted space and its own overflow-y: auto never has anything to
+     do. The excess just grows past .chatContainer's fixed 100vh and gets
+     silently clipped by its overflow: hidden, with no scrollbar anywhere
+     to reach it. This is why messages that scroll out of view become
+     completely unreachable once a conversation has enough of them. */
+  min-height: 0;
 }
 
 /* ─── Chat Header (distinct from message area) ─── */
 .chatHeader {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
+  padding: 14px 22px;
   border-bottom: 1px solid var(--bdr);
-  background: var(--lav-pale);
-  gap: 12px;
+  background: var(--wh);
+  gap: 13px;
   flex-shrink: 0;
 }
 
@@ -69,9 +77,9 @@
 }
 
 .iconButton {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
   border: none;
   display: flex;
   align-items: center;
@@ -81,35 +89,28 @@
   transition: all 0.15s ease;
 }
 
-.bgPale {
-  background: var(--wh);
-  color: var(--plum);
-  border: 1px solid var(--bdr);
-}
-
-.bgPlum {
-  background: var(--plum);
-  color: var(--wh);
-}
-
+.bgPale,
+.bgPlum,
 .bgMagenta {
-  background: var(--m);
-  color: var(--wh);
+  background: var(--m-pale);
+  color: var(--m);
 }
 
 .iconButton:hover {
-  opacity: 0.85;
-  transform: scale(1.04);
+  background: var(--m-soft);
 }
 
 /* ─── Messages Area (WHITE background per mockup) ─── */
 .messagesArea {
   flex: 1;
+  /* Same reason as .chatArea above — the item this scrollbar lives on has
+     to be allowed to shrink before overflow-y can do anything. */
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden !important;
   overflow-anchor: none;
-  padding: 20px 24px 14px;
-  background: var(--wh);
+  padding: 22px 26px 16px;
+  background: var(--chat-ground);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -118,7 +119,19 @@
 .messagesInner {
   display: flex;
   flex-direction: column;
+  /* This is the actual scrolling bug: min-height, unlike the default `auto`,
+     is an *explicit* value — and an explicit min-height overrides a flex
+     item's automatic (content-based) minimum size, which is the thing that
+     normally stops flex-shrink from crushing an item smaller than its own
+     content. With flex-shrink at its default (1) and no override, this item
+     was shrinking to fit exactly inside .messagesArea's box no matter how
+     many messages it actually held — so .messagesArea's scrollHeight could
+     never exceed its clientHeight, so there was never anything to scroll to,
+     regardless of the message count. min-height: 100% only exists so a short
+     conversation still hugs the bottom via justify-content: flex-end;
+     flex-shrink: 0 keeps that while stopping it from also being crushed. */
   min-height: 100%;
+  flex-shrink: 0;
   justify-content: flex-end;
 }
 
@@ -154,7 +167,7 @@
   display: flex;
   gap: 8px;
   align-items: flex-end;
-  max-width: 65%;
+  max-width: 72%;
   margin-bottom: 6px;
 }
 
@@ -183,26 +196,34 @@
 .messageContent {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 100%;
 }
 
+.messageItem.ownMessage .messageContent {
+  align-items: flex-end;
+}
+
 .messageSender {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--m);
-  margin-bottom: 3px;
+  margin-bottom: 5px;
 }
 
 /* ─── Message Bubbles ─── */
 .messageBubble {
+  width: fit-content;
   max-width: 100%;
   padding: 10px 14px;
   border-radius: 14px;
   border-bottom-left-radius: 4px;
-  background: var(--lav-pale);
+  background: var(--wh);
   color: var(--plum);
   border: 1px solid var(--bdr);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
   word-wrap: break-word;
   white-space: pre-wrap;
@@ -220,11 +241,53 @@
 /* Timestamp — sits below message group, centered */
 .messageTime {
   font-size: 10px;
-  color: var(--plum-lt);
-  margin-top: 4px;
+  color: var(--chat-mute);
+  margin-top: 5px;
   white-space: nowrap;
-  text-align: center;
-  width: 100%;
+  text-align: left;
+  width: auto;
+}
+
+/* File size, overlaid on the image/video itself rather than as separate
+   text underneath — the parent (.mediaFrame / .video_container) is already
+   position: relative. */
+.mediaSizeBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+/* ─── Call log line ─── */
+.callLogRow {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 10px;
+}
+
+.callLogPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--m-pale);
+  color: var(--plum);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.callLogPill i {
+  color: var(--m);
+  font-size: 14px;
 }
 
 /* ─── File Attachment Bubble ─── */
@@ -306,19 +369,32 @@
 
 .messageInput {
   flex: 1;
-  background: var(--lav-pale);
+  background: var(--wh);
   border: 1px solid var(--bdr);
   border-radius: 24px;
-  padding: 11px 20px;
-  font-size: 13px;
+  padding: 12px 20px;
+  font-size: 14px;
   color: var(--plum);
   outline: none;
   min-height: 42px;
-  max-height: 120px;
+  /* Matches the 150px cap handleInput grows it to in JS — this used to say
+     120px, so the box was clipped 30px short of what the script thought it
+     had, and the browser's native scrollbar kicked in far earlier than it
+     should have. */
+  max-height: 150px;
   resize: none;
   line-height: 1.4;
   font-family: inherit;
   box-sizing: border-box;
+  /* Still scrollable once text exceeds max-height — just without the
+     visible scrollbar chrome, which read as a stray icon sitting in the
+     composer. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.messageInput::-webkit-scrollbar {
+  display: none;
 }
 
 .messageInput:focus {
@@ -331,9 +407,9 @@
 }
 
 .sendButton {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
   background: var(--m);
   border: none;
   display: flex;
@@ -404,4 +480,228 @@
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 8px;
+}
+
+/* CSS Modules rewrites animation names in this file to a hashed local name,
+   even when no matching @keyframes is declared here — so a `spin` defined in
+   the global index.css can never match and the element sits still. Every
+   .module.css that animates must declare its own keyframes. */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* === Pinned message bar (group chat) === */
+.pinnedBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 18px;
+  background: var(--inbox-field, rgba(0, 0, 0, 0.035));
+  border-bottom: 1px solid var(--inbox-line, rgba(0, 0, 0, 0.07));
+  cursor: pointer;
+  flex-shrink: 0;
+  color: var(--m);
+  transition: background 0.12s ease;
+}
+
+.pinnedBar:hover {
+  background: var(--m-soft, rgba(145, 0, 108, 0.1));
+}
+
+.pinnedText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.pinnedLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--m);
+}
+
+.pinnedContent {
+  font-size: 12.5px;
+  color: var(--plum);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pinnedClose {
+  border: 0;
+  background: transparent;
+  color: var(--plum-lt);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.pinnedClose:hover {
+  color: var(--m);
+}
+
+/* === Reply / edit composer bar, reply quote, composer emoji === */
+
+/* Sits above the input, as Telegram shows what you're replying to or
+   editing. The left accent bar is what ties it to the quoted message. */
+.replyPreview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin: 0 0 6px;
+  background: var(--inbox-field, rgba(0, 0, 0, 0.035));
+  border-left: 3px solid var(--m);
+  border-radius: 8px;
+  color: var(--m);
+  flex-shrink: 0;
+}
+
+.editingPreview {
+  border-left-color: var(--plum);
+  color: var(--plum);
+}
+
+.replyPreviewBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.replyPreviewName {
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.replyPreviewText {
+  font-size: 12.5px;
+  color: var(--plum-lt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.replyPreviewClose {
+  border: 0;
+  background: transparent;
+  color: var(--plum-lt);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.replyPreviewClose:hover {
+  color: var(--m);
+}
+
+/* The quoted message inside a reply's bubble. */
+.replyQuote {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-left: 3px solid currentColor;
+  padding: 3px 0 3px 8px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  opacity: 0.85;
+  max-width: 100%;
+  /* Telegram widens the bubble to fit the quote rather than squeezing the
+     quote to fit the bubble — without a floor, a short reply collapsed the
+     quote to "zzr_b_178…" / "the origin…". */
+  min-width: min(210px, 60vw);
+  box-sizing: border-box;
+}
+
+.replyQuote:hover {
+  opacity: 1;
+}
+
+.replyQuoteName {
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.replyQuoteText {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+/* Composer emoji button + panel */
+.emojiAnchor {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.emojiButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--plum-lt);
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+}
+
+.emojiButton:hover {
+  color: var(--m);
+}
+
+/* Catches the click that closes the panel, without stealing it from the
+   panel itself. */
+.emojiBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.composerEmojiPanel {
+  position: absolute;
+  bottom: 38px;
+  right: 0;
+  z-index: 61;
+  width: 296px;
+  max-height: 230px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 8px;
+  background: var(--wh);
+  border: 1px solid var(--bdr);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.composerEmojiBtn {
+  border: 0;
+  background: transparent;
+  font-size: 19px;
+  line-height: 1;
+  padding: 5px 0;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.1s ease, transform 0.1s ease;
+}
+
+.composerEmojiBtn:hover {
+  background: var(--lav);
+  transform: scale(1.18);
 }

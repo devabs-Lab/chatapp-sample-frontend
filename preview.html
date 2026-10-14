@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Font candidates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Lora:wght@400;600;700&family=Spectral:wght@400;600;700&family=Crimson+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#ECDCE9;padding:26px;font-family:'Times New Roman',Times,serif;color:#4A335D}
+  h1{font-size:20px;margin-bottom:4px}
+  .lead{font-size:14px;color:#64497C;margin-bottom:22px}
+  .grid{display:flex;gap:16px;flex-wrap:wrap}
+  .card{width:340px;background:#F7F0F6;border-radius:14px;overflow:hidden;border:1px solid #E7D9E4}
+  .cap{background:#4D0239;color:#F6ECF3;padding:9px 14px;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline}
+  .cap em{font-style:normal;font-size:11px;opacity:.7}
+  .body{padding:14px}
+  .navrow{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;font-size:15px}
+  .navrow.on{background:#662252;color:#fff}
+  .dot{width:20px;height:20px;border-radius:6px;background:#91006C;flex-shrink:0}
+  .row{display:flex;gap:11px;padding:10px 2px;border-bottom:1px solid rgba(74,51,93,.07)}
+  .av{width:40px;height:40px;border-radius:12px;background:#91006C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+  .nm{font-size:15px;font-weight:600}
+  .pv{font-size:13.5px;color:#64497C}
+  .bub{background:#fff;border:1px solid #E0D0DC;border-radius:12px;padding:9px 12px;font-size:14px;line-height:1.55;margin-top:12px}
+  .bub.me{background:#91006C;color:#fff;border-color:#91006C}
+  .meta{font-size:11px;color:#64497C;margin-top:5px}
+</style>
+</head>
+<body>
+<h1>Font candidates</h1>
+<p class="lead">Same UI, five serifs. Each card is labelled with the exact family name — tell me which one.</p>
+<div class="grid" id="grid"></div>
+<script>
+const FONTS = [
+  ["Times New Roman", "'Times New Roman', Times, serif", "current"],
+  ["PT Serif",        "'PT Serif', serif",               "screen-designed, closest to Times"],
+  ["Source Serif 4",  "'Source Serif 4', serif",         "modern, open, very smooth"],
+  ["Lora",            "'Lora', serif",                   "brushed curves, most flowing"],
+  ["Spectral",        "'Spectral', serif",               "low contrast, calm"],
+  ["Crimson Pro",     "'Crimson Pro', serif",            "classical, lighter"],
+];
+document.getElementById('grid').innerHTML = FONTS.map(([name, stack, note]) => `
+  <div class="card" style="font-family:${stack}">
+    <div class="cap"><span>${name}</span><em>${note}</em></div>
+    <div class="body">
+      <div class="navrow on"><span class="dot"></span>Messages</div>
+      <div class="navrow"><span class="dot" style="background:#C9A9C1"></span>Course groups</div>
+      <div class="row" style="margin-top:10px">
+        <div class="av">PW</div>
+        <div><div class="nm">Prof. Williams</div><div class="pv">You: Thank you, I'll review it right away</div></div>
+      </div>
+      <div class="bub">Hi! I finished reviewing your Unit 3 assignment. Overall really solid work.</div>
+      <div class="bub me">Got it, page 3 noted. Really appreciate the detailed feedback!</div>
+      <div class="meta">9:16 AM · 13 conversations · UoPeople Chat</div>
+    </div>
+  </div>`).join('');
+</script>
+</body>
+</html>
